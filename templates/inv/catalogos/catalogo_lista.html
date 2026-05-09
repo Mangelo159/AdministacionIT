@@ -1,0 +1,415 @@
+{% extends 'base.html' %}
+{% block title %}{{ titulo }} — Inventario{% endblock %}
+
+{% block content %}
+
+<div
+  x-data="{
+    modalAgregar: false,
+    editOpen: false, editNombre: '', editCodigo: '', editActivo: true, editUrl: '',
+    deleteOpen: false, deleteName: '', deleteUrl: ''
+  }"
+  @open-catalogo-edit.window="
+    editNombre=$event.detail.nombre;
+    editCodigo=$event.detail.codigo;
+    editActivo=$event.detail.activo;
+    editUrl=$event.detail.url;
+    editOpen=true"
+  @open-catalogo-delete.window="
+    deleteName=$event.detail.nombre;
+    deleteUrl=$event.detail.url;
+    deleteOpen=true">
+
+  <!-- ── ENCABEZADO ──────────────────────────────────────────────────────────── -->
+  <div class="flex items-center justify-between gap-4 mb-5">
+    <div>
+      <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
+        <a href="{% url 'inv:home' %}" class="hover:text-[#2F4156] transition-colors">Inicio</a>
+        <i class="bi bi-chevron-right text-[10px]"></i>
+        <a href="{% url 'inv:mantenimientos' %}" class="hover:text-[#2F4156] transition-colors">Mantenimientos</a>
+        <i class="bi bi-chevron-right text-[10px]"></i>
+        <span class="text-slate-600 font-medium">{{ titulo }}</span>
+      </div>
+      <h1 class="text-xl font-bold text-slate-800">{{ titulo }}</h1>
+    </div>
+
+    <div class="flex items-center gap-2 shrink-0">
+      <a href="{% url 'inv:mantenimientos' %}"
+         class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600
+                text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
+        <i class="bi bi-arrow-left text-xs"></i>Atrás
+      </a>
+      <button @click="modalAgregar = true"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2F4156] text-white text-sm font-medium
+                     rounded-lg hover:bg-[#3a5068] transition-colors shadow-sm">
+        <i class="bi bi-plus-lg"></i>Agregar
+      </button>
+    </div>
+  </div>
+
+  <!-- ── MODAL AGREGAR ────────────────────────────────────────────────────────── -->
+  <div x-show="modalAgregar"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       style="display:none">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="modalAgregar = false"></div>
+    <div x-show="modalAgregar"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+         class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden z-10">
+      <div class="bg-[#C8D9E6] px-6 py-4 border-b border-[#b0cad9] flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 bg-[#2F4156] rounded-lg flex items-center justify-center shrink-0">
+            <i class="bi bi-plus-lg text-[#C8D9E6] text-xs"></i>
+          </div>
+          <h2 class="text-sm font-bold text-[#2F4156]">Agregar {{ titulo }}</h2>
+        </div>
+        <button @click="modalAgregar = false"
+                class="p-1 rounded-lg text-[#2F4156]/50 hover:text-[#2F4156] hover:bg-[#2F4156]/10 transition-colors">
+          <i class="bi bi-x-lg text-sm"></i>
+        </button>
+      </div>
+      <form method="post" action="{% url url_crear %}" class="px-6 py-5">
+        {% csrf_token %}
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Nombre <span class="text-red-500">*</span>
+          </label>
+          <input type="text" name="nombre" required autofocus placeholder="Nombre"
+                 class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700
+                        focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent
+                        placeholder:text-slate-400 transition-all">
+        </div>
+        {% if tiene_codigo %}
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Código
+          </label>
+          <input type="text" name="codigo" placeholder="Código (opcional)"
+                 class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700
+                        focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent
+                        placeholder:text-slate-400 transition-all">
+        </div>
+        {% endif %}
+        <div class="mb-5 flex items-center gap-2">
+          <input type="checkbox" name="activo" id="agregar_activo" checked
+                 class="w-4 h-4 rounded accent-[#2F4156] cursor-pointer">
+          <label for="agregar_activo" class="text-sm text-slate-700 cursor-pointer select-none">Activo</label>
+        </div>
+        <div class="flex items-center gap-2 pt-4 border-t border-slate-100">
+          <button type="submit"
+                  class="inline-flex items-center gap-1.5 px-4 py-2 bg-[#2F4156] text-white text-sm font-medium
+                         rounded-lg hover:bg-[#3a5068] transition-colors shadow-sm">
+            <i class="bi bi-check-lg"></i>Guardar
+          </button>
+          <button type="button" @click="modalAgregar = false"
+                  class="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 text-slate-600
+                         text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
+            <i class="bi bi-x-lg"></i>Cancelar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── MODAL EDITAR ─────────────────────────────────────────────────────────── -->
+  <div x-show="editOpen"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       style="display:none">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="editOpen = false"></div>
+    <div x-show="editOpen"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+         class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden z-10">
+      <div class="bg-[#C8D9E6] px-6 py-4 border-b border-[#b0cad9] flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 bg-[#2F4156] rounded-lg flex items-center justify-center shrink-0">
+            <i class="bi bi-pencil-square text-[#C8D9E6] text-xs"></i>
+          </div>
+          <h2 class="text-sm font-bold text-[#2F4156]">Editar {{ titulo }}</h2>
+        </div>
+        <button @click="editOpen = false"
+                class="p-1 rounded-lg text-[#2F4156]/50 hover:text-[#2F4156] hover:bg-[#2F4156]/10 transition-colors">
+          <i class="bi bi-x-lg text-sm"></i>
+        </button>
+      </div>
+      <form method="post" :action="editUrl" class="px-6 py-5">
+        {% csrf_token %}
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Nombre <span class="text-red-500">*</span>
+          </label>
+          <input type="text" name="nombre" x-model="editNombre" required
+                 placeholder="Nombre"
+                 class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700
+                        focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent
+                        placeholder:text-slate-400 transition-all">
+        </div>
+        {% if tiene_codigo %}
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Código
+          </label>
+          <input type="text" name="codigo" x-model="editCodigo"
+                 placeholder="Código (opcional)"
+                 class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700
+                        focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent
+                        placeholder:text-slate-400 transition-all">
+        </div>
+        {% endif %}
+        <div class="mb-5 flex items-center gap-2">
+          <input type="checkbox" name="activo" id="edit_activo" x-model="editActivo"
+                 class="w-4 h-4 rounded accent-[#2F4156] cursor-pointer">
+          <label for="edit_activo" class="text-sm text-slate-700 cursor-pointer select-none">Activo</label>
+        </div>
+        <div class="flex items-center gap-2 pt-4 border-t border-slate-100">
+          <button type="submit"
+                  class="inline-flex items-center gap-1.5 px-4 py-2 bg-[#2F4156] text-white text-sm font-medium
+                         rounded-lg hover:bg-[#3a5068] transition-colors shadow-sm">
+            <i class="bi bi-check-lg"></i>Guardar cambios
+          </button>
+          <button type="button" @click="editOpen = false"
+                  class="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 text-slate-600
+                         text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
+            <i class="bi bi-x-lg"></i>Cancelar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── MODAL ELIMINAR ───────────────────────────────────────────────────────── -->
+  <div x-show="deleteOpen"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       style="display:none">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="deleteOpen = false"></div>
+    <div x-show="deleteOpen"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+         class="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden z-10">
+      <div class="bg-red-50 px-6 py-4 border-b border-red-100 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 bg-red-500 rounded-lg flex items-center justify-center shrink-0">
+            <i class="bi bi-trash-fill text-white text-xs"></i>
+          </div>
+          <h2 class="text-sm font-bold text-red-700">Eliminar {{ titulo }}</h2>
+        </div>
+        <button @click="deleteOpen = false"
+                class="p-1 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-100 transition-colors">
+          <i class="bi bi-x-lg text-sm"></i>
+        </button>
+      </div>
+      <div class="px-6 py-5">
+        <p class="text-sm text-slate-600 mb-1">¿Estás seguro que deseas eliminar:</p>
+        <p class="text-sm font-semibold text-slate-800 mb-4" x-text='"«" + deleteName + "»"'></p>
+        <p class="text-xs text-slate-400 mb-5">Esta acción no se puede deshacer.</p>
+        <form method="post" :action="deleteUrl" class="flex items-center gap-2 pt-4 border-t border-slate-100">
+          {% csrf_token %}
+          <button type="submit"
+                  class="inline-flex items-center gap-1.5 px-4 py-2 bg-red-500 text-white text-sm font-medium
+                         rounded-lg hover:bg-red-600 transition-colors shadow-sm">
+            <i class="bi bi-trash"></i>Eliminar
+          </button>
+          <button type="button" @click="deleteOpen = false"
+                  class="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 text-slate-600
+                         text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
+            <i class="bi bi-x-lg"></i>Cancelar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BÚSQUEDA ─────────────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 mb-5">
+    <form method="get" class="flex items-center gap-2">
+      <div class="flex items-center border border-slate-200 bg-slate-50 rounded-lg overflow-hidden flex-1 max-w-sm">
+        <span class="px-3 text-slate-400">
+          <i class="bi bi-search text-sm"></i>
+        </span>
+        <input type="text" name="q" value="{{ q }}" placeholder="Buscar..."
+               class="flex-1 py-2 pr-3 text-sm text-slate-700 bg-transparent outline-none placeholder:text-slate-400">
+      </div>
+      <button type="submit"
+              class="px-4 py-2 bg-[#2F4156] text-white text-sm font-medium rounded-lg hover:bg-[#3a5068] transition-colors">
+        Buscar
+      </button>
+      {% if q %}
+      <a href="?"
+         class="px-3 py-2 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg border border-slate-200 text-sm transition-colors flex items-center gap-1">
+        <i class="bi bi-x-lg text-xs"></i>Limpiar
+      </a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- ── TABLA ────────────────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full">
+        <thead>
+          <tr class="border-b border-slate-200 bg-slate-50">
+            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-14">#</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Nombre</th>
+            {% if tiene_codigo %}
+            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Código</th>
+            {% endif %}
+            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">Estado</th>
+            <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide w-16"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for obj in objetos %}
+          <tr class="hover:bg-[#C8D9E6]/20 transition-colors">
+            <td class="px-4 py-3 text-xs text-slate-400">{{ obj.pk }}</td>
+            <td class="px-4 py-3 text-sm font-medium text-slate-700">{{ obj.nombre }}</td>
+            {% if tiene_codigo %}
+            <td class="px-4 py-3 text-sm text-slate-600">{{ obj.codigo|default:"—" }}</td>
+            {% endif %}
+            <td class="px-4 py-3">
+              {% if obj.activo %}
+              <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">Activo</span>
+              {% else %}
+              <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-500 rounded-full border border-slate-200">Inactivo</span>
+              {% endif %}
+            </td>
+
+            <!-- Menú 3 puntos -->
+            <td class="px-4 py-3">
+              <div x-data="{ open: false, top: 0, right: 0 }"
+                   data-nombre="{{ obj.nombre }}"
+                   data-codigo="{{ obj.codigo|default:'' }}"
+                   data-activo="{{ obj.activo|lower }}"
+                   data-edit-url="{% url url_editar obj.pk %}"
+                   data-del-url="{% url url_eliminar obj.pk %}"
+                   class="flex justify-end">
+                <button @click.stop="const r=$el.getBoundingClientRect(); top=r.bottom+4; right=window.innerWidth-r.right; open=!open"
+                        class="p-1.5 rounded-lg hover:bg-[#C8D9E6]/50 text-[#2F4156]/60 hover:text-[#2F4156] transition-colors">
+                  <i class="bi bi-three-dots-vertical text-sm"></i>
+                </button>
+
+                <template x-teleport="body">
+                  <div x-show="open"
+                       x-transition:enter="transition ease-out duration-100"
+                       x-transition:enter-start="opacity-0 scale-95"
+                       x-transition:enter-end="opacity-100 scale-100"
+                       x-transition:leave="transition ease-in duration-75"
+                       x-transition:leave-start="opacity-100 scale-100"
+                       x-transition:leave-end="opacity-0 scale-95"
+                       @click.outside="open = false"
+                       :style="`position:fixed;top:${top}px;right:${right}px`"
+                       class="w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-[9999] origin-top-right">
+
+                    <!-- Editar -->
+                    <button type="button"
+                            @click="open=false; $dispatch('open-catalogo-edit', {
+                              nombre: $root.dataset.nombre,
+                              codigo: $root.dataset.codigo,
+                              activo: $root.dataset.activo==='true',
+                              url: $root.dataset.editUrl
+                            })"
+                            class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:text-[#2F4156] hover:bg-[#C8D9E6]/25 transition-colors">
+                      <i class="bi bi-pencil text-xs text-slate-400"></i>
+                      Editar
+                    </button>
+
+                    <div class="mx-3 my-1 border-t border-slate-100"></div>
+
+                    <!-- Toggle activo -->
+                    <form method="post" action="{% url url_toggle obj.pk %}">
+                      {% csrf_token %}
+                      <button type="submit"
+                              class="w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-colors
+                                     {% if obj.activo %}text-amber-600 hover:bg-amber-50{% else %}text-emerald-600 hover:bg-emerald-50{% endif %}">
+                        <i class="bi {% if obj.activo %}bi-toggle-off text-amber-400{% else %}bi-toggle-on text-emerald-400{% endif %} text-sm"></i>
+                        {% if obj.activo %}Desactivar{% else %}Activar{% endif %}
+                      </button>
+                    </form>
+
+                    <div class="mx-3 my-1 border-t border-slate-100"></div>
+
+                    <!-- Eliminar -->
+                    <button type="button"
+                            @click="open=false; $dispatch('open-catalogo-delete', {
+                              nombre: $root.dataset.nombre,
+                              url: $root.dataset.delUrl
+                            })"
+                            class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                      <i class="bi bi-trash text-xs text-red-400"></i>
+                      Eliminar
+                    </button>
+
+                  </div>
+                </template>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="{% if tiene_codigo %}5{% else %}4{% endif %}" class="px-4 py-14 text-center">
+              <i class="bi bi-inbox text-3xl text-slate-300 block mb-2"></i>
+              <span class="text-sm text-slate-400">
+                No hay registros{% if q %} para "<strong class="text-slate-600">{{ q }}</strong>"{% endif %}.
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if is_paginated %}
+  <nav class="flex justify-center mt-5">
+    <div class="inline-flex items-center gap-1">
+      {% if page_obj.has_previous %}
+      <a href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.previous_page_number }}"
+         class="px-3 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 bg-white transition-colors">
+        <i class="bi bi-chevron-left text-xs"></i>
+      </a>
+      {% endif %}
+      <span class="px-3 py-1.5 text-sm border border-[#2F4156] bg-[#2F4156] text-white rounded-lg font-medium">
+        {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+      </span>
+      {% if page_obj.has_next %}
+      <a href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.next_page_number }}"
+         class="px-3 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 bg-white transition-colors">
+        <i class="bi bi-chevron-right text-xs"></i>
+      </a>
+      {% endif %}
+    </div>
+  </nav>
+  {% endif %}
+
+</div>
+
+{% endblock %}

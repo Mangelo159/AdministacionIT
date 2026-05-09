@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+{% block title %}Mantenimientos — Inventario{% endblock %}
+
+{% block content %}
+
+<!-- Encabezado -->
+<div class="flex items-center justify-between gap-4 mb-6">
+  <div>
+    <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
+      <a href="{% url 'inv:home' %}" class="hover:text-blue-700 transition-colors">Inicio</a>
+      <i class="bi bi-chevron-right text-[10px]"></i>
+      <span class="text-slate-600 font-medium">Mantenimientos</span>
+    </div>
+    <h1 class="text-xl font-bold text-slate-800">Mantenimientos</h1>
+    <p class="text-slate-400 text-xs mt-0.5">Tablas de referencia y configuración del inventario.</p>
+  </div>
+  <a href="{% url 'inv:home' %}"
+     class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600
+            bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300
+            rounded-lg transition-all shadow-sm shrink-0">
+    <i class="bi bi-arrow-left text-slate-400"></i>
+    Volver
+  </a>
+</div>
+
+<!-- ─── Organización ──────────────────────────────────── -->
+<div class="mb-6">
+  <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-2.5 px-0.5">
+    Organización
+  </p>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+
+    <a href="{% url 'inv:institucion_lista' %}"
+       class="group flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3
+              hover:border-blue-300 hover:shadow-md hover:bg-blue-50/40 transition-all duration-200">
+      <div class="w-9 h-9 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center shrink-0 transition-colors duration-200">
+        <i class="bi bi-building text-blue-700 text-sm"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-800 transition-colors">Instituciones</p>
+        <p class="text-xs text-slate-400 truncate">Entidades principales del sistema</p>
+      </div>
+      <i class="bi bi-chevron-right text-slate-300 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all text-xs shrink-0"></i>
+    </a>
+
+    <a href="{% url 'inv:sede_lista' %}"
+       class="group flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3
+              hover:border-blue-300 hover:shadow-md hover:bg-blue-50/40 transition-all duration-200">
+      <div class="w-9 h-9 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center shrink-0 transition-colors duration-200">
+        <i class="bi bi-geo-alt text-blue-700 text-sm"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-800 transition-colors">Sedes</p>
+        <p class="text-xs text-slate-400 truncate">Ubicaciones físicas por institución</p>
+      </div>
+      <i class="bi bi-chevron-right text-slate-300 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all text-xs shrink-0"></i>
+    </a>
+
+    <a href="{% url 'inv:grupo_lista' %}"
+       class="group flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3
+              hover:border-blue-300 hover:shadow-md hover:bg-blue-50/40 transition-all duration-200">
+      <div class="w-9 h-9 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center shrink-0 transition-colors duration-200">
+        <i class="bi bi-diagram-3 text-blue-700 text-sm"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-800 transition-colors">Grupos</p>
+        <p class="text-xs text-slate-400 truncate">Grupos y subgrupos por sede</p>
+      </div>
+      <i class="bi bi-chevron-right text-slate-300 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all text-xs shrink-0"></i>
+    </a>
+
+  </div>
+</div>
+
+<!-- ─── Usuarios y accesos ────────────────────────────── -->
+<div class="mb-6">
+  <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-2.5 px-0.5">
+    Usuarios y accesos
+  </p>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+
+    <a href="{% url 'inv:rol_lista' %}"
+       class="group flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3
+              hover:border-blue-300 hover:shadow-md hover:bg-blue-50/40 transition-all duration-200">
+      <div class="w-9 h-9 rounded-lg bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center shrink-0 transition-colors duration-200">
+        <i class="bi bi-shield-check text-slate-500 group-hover:text-blue-700 text-sm transition-colors duration-200"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-800 transition-colors">Roles</p>
+        <p class="text-xs text-slate-400 truncate">Roles de seguridad del sistema</p>
+      </div>
+      <i class="bi bi-chevron-right text-slate-300 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all text-xs shrink-0"></i>
+    </a>
+
+    <a href="{% url 'inv:persona_lista' %}"
+       class="group flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3
+              hover:border-blue-300 hover:shadow-md hover:bg-blue-50/40 transition-all duration-200">
+      <div class="w-9 h-9 rounded-lg bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center shrink-0 transition-colors duration-200">
+        <i class="bi bi-people text-slate-500 group-hover:text-blue-700 text-sm transition-colors duration-200"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-800 transition-colors">Personas</p>
+        <p class="text-xs text-slate-400 truncate">Registro de usuarios y contactos</p>
+      </div>
+      <i class="bi bi-chevron-right text-slate-300 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all text-xs shrink-0"></i>
+    </a>
+
+    <a href="{% url 'inv:perfil_lista' %}"
+       class="group flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3
+              hover:border-blue-300 hover:shadow-md hover:bg-blue-50/40 transition-all duration-200">
+      <div class="w-9 h-9 rounded-lg bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center shrink-0 transition-colors duration-200">
+        <i class="bi bi-person-badge text-slate-500 group-hover:text-blue-700 text-sm transition-colors duration-200"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-800 transition-colors">Perfiles</p>
+        <p class="text-xs text-slate-400 truncate">Asignación de roles a personas</p>
+      </div>
+      <i class="bi bi-chevron-right text-slate-300 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all text-xs shrink-0"></i>
+    </a>
+
+    <a href="{% url 'inv:modulo_lista' %}"
+       class="group flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3
+              hover:border-blue-300 hover:shadow-md hover:bg-blue-50/40 transition-all duration-200">
+      <div class="w-9 h-9 rounded-lg bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center shrink-0 transition-colors duration-200">
+        <i class="bi bi-grid text-slate-500 group-hover:text-blue-700 text-sm transition-colors duration-200"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-800 transition-colors">Módulos</p>
+        <p class="text-xs text-slate-400 truncate">Componentes funcionales del sistema</p>
+      </div>
+      <i class="bi bi-chevron-right text-slate-300 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all text-xs shrink-0"></i>
+    </a>
+
+  </div>
+</div>
+
+<!-- ─── Inventario y catálogos ────────────────────────── -->
+<div class="mb-2">
+  <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-2.5 px-0.5">
+    Inventario y catálogos
+  </p>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+
+    <a href="{% url 'inv:marca_lista' %}"
+       class="group flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3
+              hover:border-blue-300 hover:shadow-md hover:bg-blue-50/40 transition-all duration-200">
+      <div class="w-9 h-9 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center shrink-0 transition-colors duration-200">
+        <i class="bi bi-bookmark text-blue-700 text-sm"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-800 transition-colors">Marcas</p>
+        <p class="text-xs text-slate-400 truncate">Fabricantes y marcas registradas</p>
+      </div>
+      <i class="bi bi-chevron-right text-slate-300 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all text-xs shrink-0"></i>
+    </a>
+
+    <a href="{% url 'inv:tipo_equipo_lista' %}"
+       class="group flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3
+              hover:border-blue-300 hover:shadow-md hover:bg-blue-50/40 transition-all duration-200">
+      <div class="w-9 h-9 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center shrink-0 transition-colors duration-200">
+        <i class="bi bi-pc-display text-blue-700 text-sm"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-800 transition-colors">Tipos de Equipo</p>
+        <p class="text-xs text-slate-400 truncate">Computadoras, laptops, servidores…</p>
+      </div>
+      <i class="bi bi-chevron-right text-slate-300 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all text-xs shrink-0"></i>
+    </a>
+
+    <a href="{% url 'inv:tipo_periferico_lista' %}"
+       class="group flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3
+              hover:border-blue-300 hover:shadow-md hover:bg-blue-50/40 transition-all duration-200">
+      <div class="w-9 h-9 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center shrink-0 transition-colors duration-200">
+        <i class="bi bi-mouse text-blue-700 text-sm"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-800 transition-colors">Tipos de Periférico</p>
+        <p class="text-xs text-slate-400 truncate">Mouse, teclado, monitor, impresora…</p>
+      </div>
+      <i class="bi bi-chevron-right text-slate-300 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all text-xs shrink-0"></i>
+    </a>
+
+    <a href="{% url 'inv:tipo_componente_lista' %}"
+       class="group flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3
+              hover:border-blue-300 hover:shadow-md hover:bg-blue-50/40 transition-all duration-200">
+      <div class="w-9 h-9 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center shrink-0 transition-colors duration-200">
+        <i class="bi bi-cpu text-blue-700 text-sm"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-800 transition-colors">Tipos de Componente</p>
+        <p class="text-xs text-slate-400 truncate">RAM, disco, procesador, fuente…</p>
+      </div>
+      <i class="bi bi-chevron-right text-slate-300 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all text-xs shrink-0"></i>
+    </a>
+
+    <a href="{% url 'inv:software_lista' %}"
+       class="group flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3
+              hover:border-blue-300 hover:shadow-md hover:bg-blue-50/40 transition-all duration-200">
+      <div class="w-9 h-9 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center shrink-0 transition-colors duration-200">
+        <i class="bi bi-floppy text-blue-700 text-sm"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-slate-700 group-hover:text-blue-800 transition-colors">Software</p>
+        <p class="text-xs text-slate-400 truncate">Programas y licencias instalables</p>
+      </div>
+      <i class="bi bi-chevron-right text-slate-300 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all text-xs shrink-0"></i>
+    </a>
+
+  </div>
+</div>
+
+{% endblock %}

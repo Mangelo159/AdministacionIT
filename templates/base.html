@@ -1,0 +1,205 @@
+{% load static tailwind_tags %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Inventario{% endblock %}</title>
+    {% tailwind_css %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="flex flex-col min-h-screen bg-slate-50 text-slate-800 antialiased">
+
+    <!-- NAVBAR -->
+    <nav x-data="{ open: false }" class="bg-[#C8D9E6] shadow-md sticky top-0 z-50 border-b border-[#b0cad9]">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+
+                <!-- Brand / Logo -->
+                <a href="{% url 'inv:home' %}" class="flex items-center gap-3 group shrink-0">
+                    <!-- Espacio para el logo: coloca tu imagen en static/logo.png -->
+                    <div class="w-9 h-9 rounded-lg overflow-hidden shrink-0 bg-[#2F4156] flex items-center justify-center shadow-sm">
+                        <img src="{% static 'logo.png' %}" alt="Logo"
+                             class="w-full h-full object-contain"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+                        <i class="bi bi-pc-display text-[#C8D9E6] text-base" style="display:none"></i>
+                    </div>
+                    <div class="hidden sm:block leading-tight">
+                        <p class="text-[#2F4156] font-bold text-sm tracking-wide group-hover:text-[#2F4156]/70 transition-colors duration-200">
+                            Inventario TIC
+                        </p>
+                        <p class="text-[#2F4156]/55 text-xs font-normal">Departamento de TIC</p>
+                    </div>
+                </a>
+
+                <!-- Desktop links -->
+                <div class="hidden lg:flex items-center gap-1">
+                    {% if user.is_authenticated %}
+
+                    <!-- Divider -->
+                    <div class="w-px h-5 bg-[#2F4156]/20 mx-1"></div>
+
+                    <!-- User dropdown -->
+                    <div class="relative" x-data="{ drop: false }" @click.outside="drop = false">
+                        <button @click="drop = !drop"
+                                class="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-[#2F4156]/10 text-sm font-medium transition-all duration-200 group">
+                            <div class="w-7 h-7 bg-[#2F4156] rounded-full flex items-center justify-center shrink-0">
+                                <i class="bi bi-person-fill text-[#C8D9E6] text-xs"></i>
+                            </div>
+                            <span class="text-[#2F4156] group-hover:text-[#2F4156]/80 transition-colors duration-200">
+                                {{ user.username }}
+                            </span>
+                            <i class="bi bi-chevron-down text-[#2F4156]/50 text-xs transition-transform duration-200"
+                               :class="drop ? 'rotate-180' : ''"></i>
+                        </button>
+
+                        <div x-show="drop"
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 scale-95 -translate-y-1"
+                             x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                             x-transition:leave="transition ease-in duration-100"
+                             x-transition:leave-start="opacity-100 scale-100"
+                             x-transition:leave-end="opacity-0 scale-95 -translate-y-1"
+                             class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden z-50 origin-top-right">
+
+                            <!-- Header del dropdown -->
+                            <div class="bg-[#C8D9E6] px-4 py-3 border-b border-[#b0cad9]">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 bg-[#2F4156] rounded-full flex items-center justify-center shrink-0">
+                                        <i class="bi bi-person-fill text-[#C8D9E6] text-sm"></i>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="text-[#2F4156] text-sm font-semibold truncate">{{ user.username }}</p>
+                                        <p class="text-[#2F4156]/55 text-xs">{{ user.email|default:"Usuario" }}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="py-1.5">
+                                {% if user.is_staff %}
+                                <a href="{% url 'admin:index' %}"
+                                   class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:text-[#2F4156] hover:bg-[#C8D9E6]/30 transition-colors duration-150">
+                                    <i class="bi bi-gear-fill text-[#2F4156]/40 text-xs"></i>
+                                    Administración
+                                </a>
+                                <div class="mx-4 border-t border-slate-100 my-1"></div>
+                                {% endif %}
+                                <form method="post" action="{% url 'logout' %}">
+                                    {% csrf_token %}
+                                    <button type="submit"
+                                            class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors duration-150">
+                                        <i class="bi bi-box-arrow-right text-xs"></i>
+                                        Cerrar sesión
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% endif %}
+                </div>
+
+                <!-- Mobile toggle -->
+                <button @click="open = !open"
+                        class="lg:hidden p-2 rounded-md text-[#2F4156] hover:bg-[#2F4156]/10 transition-all duration-200">
+                    <i class="bi text-xl leading-none" :class="open ? 'bi-x-lg' : 'bi-list'"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile menu -->
+        <div x-show="open"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 -translate-y-2"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 translate-y-0"
+             x-transition:leave-end="opacity-0 -translate-y-2"
+             class="lg:hidden border-t border-[#b0cad9] bg-[#C8D9E6]">
+            <div class="max-w-7xl mx-auto px-4 py-3 space-y-1">
+                {% if user.is_authenticated %}
+                <div class="border-t border-[#2F4156]/15 pt-2 mt-1">
+                    <div class="flex items-center gap-2.5 px-3 py-2 mb-1">
+                        <div class="w-8 h-8 bg-[#2F4156] rounded-full flex items-center justify-center shrink-0">
+                            <i class="bi bi-person-fill text-[#C8D9E6] text-sm"></i>
+                        </div>
+                        <span class="text-sm font-semibold text-[#2F4156]">{{ user.username }}</span>
+                    </div>
+                    {% if user.is_staff %}
+                    <a href="{% url 'admin:index' %}"
+                       class="flex items-center gap-2 px-3 py-2.5 rounded-md text-[#2F4156]/70 hover:text-[#2F4156] hover:bg-[#2F4156]/10 text-sm transition-all duration-200">
+                        <i class="bi bi-gear-fill text-[#2F4156]/40 text-xs"></i>Administración
+                    </a>
+                    {% endif %}
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button type="submit"
+                                class="w-full flex items-center gap-2 px-3 py-2.5 rounded-md text-red-500 hover:text-red-600 hover:bg-red-50 text-sm transition-all duration-200">
+                            <i class="bi bi-box-arrow-right"></i>Cerrar sesión
+                        </button>
+                    </form>
+                </div>
+                {% else %}
+                <a href="{% url 'login' %}"
+                   class="flex items-center gap-2 px-3 py-2.5 rounded-md bg-[#2F4156] text-white hover:bg-[#3a5068] text-sm font-semibold transition-all duration-200">
+                    <i class="bi bi-box-arrow-in-right"></i>Iniciar sesión
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- MENSAJES -->
+    {% if messages %}
+    <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-5 space-y-2">
+        {% for message in messages %}
+        <div x-data="{ show: true }"
+             x-show="show"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100 translate-y-0"
+             x-transition:leave-end="opacity-0 -translate-y-1"
+             class="flex items-start gap-3 px-4 py-3 rounded-xl text-sm border shadow-sm
+             {% if message.tags == 'error' or message.tags == 'danger' %}
+                 bg-red-50 border-red-200 text-red-700
+             {% elif message.tags == 'warning' %}
+                 bg-amber-50 border-amber-200 text-amber-700
+             {% elif message.tags == 'success' %}
+                 bg-emerald-50 border-emerald-200 text-emerald-700
+             {% else %}
+                 bg-[#C8D9E6]/40 border-[#b0cad9] text-[#2F4156]
+             {% endif %}">
+            <i class="bi shrink-0 mt-0.5 text-base
+               {% if message.tags == 'error' or message.tags == 'danger' %}bi-exclamation-circle-fill text-red-400
+               {% elif message.tags == 'warning' %}bi-exclamation-triangle-fill text-amber-400
+               {% elif message.tags == 'success' %}bi-check-circle-fill text-emerald-500
+               {% else %}bi-info-circle-fill text-[#2F4156]/60{% endif %}"></i>
+            <span class="flex-1">{{ message }}</span>
+            <button @click="show = false" class="shrink-0 opacity-40 hover:opacity-80 transition-opacity mt-0.5">
+                <i class="bi bi-x-lg text-xs"></i>
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="flex-1 py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-[#C8D9E6] border-t border-[#b0cad9] py-5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <p class="text-[#2F4156]/45 text-xs">&copy; {% now "Y" %} &mdash; Todos los derechos reservados</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

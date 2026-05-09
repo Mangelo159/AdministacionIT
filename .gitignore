@@ -1,0 +1,28 @@
+# Entorno virtual
+venv/
+.env
+.env.example
+CAMBIOS QUE REALIZAR
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Django
+*.log
+db.sqlite3
+media/
+
+# PyCharm
+.idea/
+
+# Claude Code
+.claude/
+
+# Compilados
+*.egg-info/
+dist/
+build/
