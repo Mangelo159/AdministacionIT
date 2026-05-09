@@ -2,23 +2,13 @@
 {% block title %}Grupos — Inventario{% endblock %}
 
 {% block content %}
-<script type="application/json" id="grupos-data">{{ grupos_json }}</script>
-
 <div
   x-data="{
     modalAgregarGrupo: false, addGrupoSede: '',
     editGrupoOpen: false, editGrupoNombre: '', editGrupoSede: '', editGrupoActivo: true, editGrupoUrl: '',
     modalAgregarSubgrupo: false, addSubgrupoGrupo: '',
     editSubgrupoOpen: false, editSubgrupoNombre: '', editSubgrupoGrupo: '', editSubgrupoActivo: true, editSubgrupoUrl: '',
-    deleteOpen: false, deleteName: '', deleteUrl: '',
-    gruposData: [],
-    init() {
-      const el = document.getElementById('grupos-data');
-      this.gruposData = el ? JSON.parse(el.textContent) : [];
-    },
-    gruposPorSede(sedeId) {
-      return this.gruposData.filter(function(g) { return String(g.sede_id) === String(sedeId); });
-    }
+    deleteOpen: false, deleteName: '', deleteUrl: ''
   }"
   @open-grupo-edit.window="
     editGrupoNombre=$event.detail.nombre;
@@ -403,11 +393,11 @@
           <span class="flex-1 text-sm font-medium text-slate-700">{{ grupo.nombre }}</span>
 
           <!-- Contador subgrupos -->
-          {% if grupo.subgrupos.all %}
+          {% with total=grupo.subgrupos.all|length %}{% if total %}
           <span class="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
-            {{ grupo.subgrupos.count }} subgrupo{{ grupo.subgrupos.count|pluralize }}
+            {{ total }} subgrupo{{ total|pluralize }}
           </span>
-          {% endif %}
+          {% endif %}{% endwith %}
 
           <!-- Estado -->
           {% if grupo.activo %}

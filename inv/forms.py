@@ -1,6 +1,7 @@
 from django import forms
-from .models import (Marca, TipoEquipo, TipoPeriferico, TipoComponente,
-                     Institucion, Sede, Grupo, Subgrupo, Rol, Persona, Perfil, Modulo, Software)
+from .models import (Marca, TipoEquipo, TipoPeriferico, TipoComponente, ModeloComponente,
+                     Institucion, Sede, Grupo, Subgrupo, Rol, Persona, Perfil, Modulo, Software,
+                     Equipo, Componente, Periferico, InstalacionSoftware)
 
 
 class MarcaForm(forms.ModelForm):
@@ -26,10 +27,9 @@ class TipoEquipoForm(forms.ModelForm):
 class TipoPerifericoForm(forms.ModelForm):
     class Meta:
         model = TipoPeriferico
-        fields = ['nombre', 'codigo', 'activo']
+        fields = ['nombre', 'activo']
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control', 'autofocus': True}),
-            'codigo': forms.TextInput(attrs={'class': 'form-control text-uppercase'}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
@@ -37,10 +37,29 @@ class TipoPerifericoForm(forms.ModelForm):
 class TipoComponenteForm(forms.ModelForm):
     class Meta:
         model = TipoComponente
-        fields = ['nombre', 'codigo', 'activo']
+        fields = ['nombre', 'activo']
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control', 'autofocus': True}),
-            'codigo': forms.TextInput(attrs={'class': 'form-control text-uppercase'}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class ModeloComponenteForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['tipo'].queryset = TipoComponente.objects.filter(activo=True)
+        self.fields['marca'].queryset = Marca.objects.filter(activo=True)
+
+    class Meta:
+        model = ModeloComponente
+        fields = ['tipo', 'nombre', 'capacidad', 'marca', 'activo']
+        widgets = {
+            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'autofocus': True,
+                                            'placeholder': 'Ej: Intel Core i5-10400'}),
+            'capacidad': forms.TextInput(attrs={'class': 'form-control',
+                                               'placeholder': 'Ej: 8 GB, 3.6 GHz'}),
+            'marca': forms.Select(attrs={'class': 'form-select'}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
@@ -56,6 +75,10 @@ class InstitucionForm(forms.ModelForm):
 
 
 class SedeForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['institucion'].queryset = Institucion.objects.filter(activo=True)
+
     class Meta:
         model = Sede
         fields = ['nombre', 'institucion', 'direccion', 'activo']
@@ -68,6 +91,10 @@ class SedeForm(forms.ModelForm):
 
 
 class GrupoForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['sede'].queryset = Sede.objects.select_related('institucion').filter(activo=True)
+
     class Meta:
         model = Grupo
         fields = ['nombre', 'sede', 'activo']
@@ -79,6 +106,10 @@ class GrupoForm(forms.ModelForm):
 
 
 class SubgrupoForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['grupo'].queryset = Grupo.objects.select_related('sede').filter(activo=True)
+
     class Meta:
         model = Subgrupo
         fields = ['nombre', 'grupo', 'activo']
@@ -148,4 +179,72 @@ class SoftwareForm(forms.ModelForm):
             'fabricante': forms.TextInput(attrs={'class': 'form-control'}),
             'requiere_licencia': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+# ── INVENTARIO ────────────────────────────────────────────────────────────────
+
+class EquipoForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['grupo'].queryset = Grupo.objects.select_related('sede').filter(activo=True)
+        grupo_id = self.data.get('grupo') or (
+            self.instance.subgrupo.grupo_id if self.instance.pk and self.instance.subgrupo_id else None
+        )
+        if grupo_id:
+            self.fields['subgrupo'].queryset = Subgrupo.objects.filter(grupo_id=grupo_id, activo=True)
+        else:
+            self.fields['subgrupo'].queryset = Subgrupo.objects.none()
+
+    class Meta:
+        model = Equipo
+        fields = ['codigo', 'tipo', 'grupo', 'subgrupo', 'observaciones', 'activo']
+        widgets = {
+            'codigo': forms.TextInput(attrs={'class': 'form-control', 'autofocus': True}),
+            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'grupo': forms.Select(attrs={
+                'class': 'form-select',
+                '@change': 'onGrupoChange($event.target.value)',
+            }),
+            'subgrupo': forms.Select(attrs={'class': 'form-select'}),
+            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class ComponenteForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['modelo'].queryset = ModeloComponente.objects.select_related('tipo').filter(activo=True)
+
+    class Meta:
+        model = Componente
+        fields = ['modelo', 'activo']
+        widgets = {
+            'modelo': forms.Select(attrs={'class': 'form-select'}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class PerifericoForm(forms.ModelForm):
+    class Meta:
+        model = Periferico
+        fields = ['tipo', 'marca', 'activo']
+        widgets = {
+            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'marca': forms.Select(attrs={'class': 'form-select'}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class InstalacionSoftwareForm(forms.ModelForm):
+    class Meta:
+        model = InstalacionSoftware
+        fields = ['software', 'version', 'fecha_instalacion', 'fecha_vencimiento', 'observaciones']
+        widgets = {
+            'software': forms.Select(attrs={'class': 'form-select'}),
+            'version': forms.TextInput(attrs={'class': 'form-control'}),
+            'fecha_instalacion': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'fecha_vencimiento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }

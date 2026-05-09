@@ -6,6 +6,33 @@ app_name = 'inv'
 urlpatterns = [
     path('', views.home, name='home'),
     path('mantenimientos/', views.mantenimientos, name='mantenimientos'),
+    path('inventario/', views.inventario, name='inventario'),
+
+    # Equipos
+    path('inventario/equipos/', views.EquipoListView.as_view(), name='equipo_lista'),
+    path('inventario/equipos/subgrupos-json/', views.subgrupos_json, name='subgrupos_json'),
+    path('inventario/equipos/modelos-componente-json/', views.modelos_componente_json, name='modelos_componente_json'),
+    path('inventario/equipos/sede/<int:sede_pk>/', views.EquipoSedeView.as_view(), name='equipo_lista_sede'),
+    path('inventario/equipos/nuevo/', views.EquipoCreateView.as_view(), name='equipo_crear'),
+    path('inventario/equipos/<int:pk>/', views.EquipoDetailView.as_view(), name='equipo_detalle'),
+    path('inventario/equipos/<int:pk>/editar/', views.EquipoUpdateView.as_view(), name='equipo_editar'),
+    path('inventario/equipos/<int:pk>/toggle/', views.equipo_toggle, name='equipo_toggle'),
+    path('inventario/equipos/<int:pk>/eliminar/', views.equipo_delete, name='equipo_eliminar'),
+
+    # Componentes
+    path('inventario/equipos/<int:equipo_pk>/componentes/agregar/', views.componente_create, name='componente_crear'),
+    path('inventario/equipos/<int:equipo_pk>/componentes/<int:pk>/editar/', views.componente_update, name='componente_editar'),
+    path('inventario/equipos/<int:equipo_pk>/componentes/<int:pk>/eliminar/', views.componente_delete, name='componente_eliminar'),
+
+    # Periféricos
+    path('inventario/equipos/<int:equipo_pk>/perifericos/agregar/', views.periferico_create, name='periferico_crear'),
+    path('inventario/equipos/<int:equipo_pk>/perifericos/<int:pk>/editar/', views.periferico_update, name='periferico_editar'),
+    path('inventario/equipos/<int:equipo_pk>/perifericos/<int:pk>/eliminar/', views.periferico_delete, name='periferico_eliminar'),
+
+    # Software instalado
+    path('inventario/equipos/<int:equipo_pk>/software/agregar/', views.instalacion_create, name='instalacion_crear'),
+    path('inventario/equipos/<int:equipo_pk>/software/<int:pk>/editar/', views.instalacion_update, name='instalacion_editar'),
+    path('inventario/equipos/<int:equipo_pk>/software/<int:pk>/eliminar/', views.instalacion_delete, name='instalacion_eliminar'),
 
     # Marcas
     path('marcas/', views.MarcaListView.as_view(), name='marca_lista'),
@@ -61,6 +88,13 @@ urlpatterns = [
     path('tipos-componente/<int:pk>/editar/', views.TipoComponenteUpdateView.as_view(), name='tipo_componente_editar'),
     path('tipos-componente/<int:pk>/toggle/', views.tipo_componente_toggle, name='tipo_componente_toggle'),
     path('tipos-componente/<int:pk>/eliminar/', views.tipo_componente_delete, name='tipo_componente_eliminar'),
+
+    # Modelos de componente
+    path('modelos-componente/', views.ModeloComponenteListView.as_view(), name='modelo_componente_lista'),
+    path('modelos-componente/nuevo/', views.ModeloComponenteCreateView.as_view(), name='modelo_componente_crear'),
+    path('modelos-componente/<int:pk>/editar/', views.ModeloComponenteUpdateView.as_view(), name='modelo_componente_editar'),
+    path('modelos-componente/<int:pk>/toggle/', views.modelo_componente_toggle, name='modelo_componente_toggle'),
+    path('modelos-componente/<int:pk>/eliminar/', views.modelo_componente_delete, name='modelo_componente_eliminar'),
 
     # Roles
     path('roles/', views.RolListView.as_view(), name='rol_lista'),

@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Equipos — Inventario{% endblock %}
+
+{% block content %}
+
+<div class="flex items-center justify-between gap-4 mb-6">
+  <div>
+    <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
+      <a href="{% url 'inv:home' %}" class="hover:text-[#2F4156] transition-colors">Inicio</a>
+      <i class="bi bi-chevron-right text-[10px]"></i>
+      <span class="text-slate-600 font-medium">Equipos</span>
+    </div>
+    <h1 class="text-xl font-bold text-slate-800">Equipos</h1>
+    <p class="text-slate-400 text-xs mt-0.5">Selecciona una sede para ver sus equipos.</p>
+  </div>
+  <a href="{% url 'inv:home' %}"
+     class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600
+            bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300
+            rounded-lg transition-all shadow-sm shrink-0">
+    <i class="bi bi-arrow-left text-slate-400"></i>Volver
+  </a>
+</div>
+
+{% if sedes_data %}
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+  {% for sd in sedes_data %}
+  <a href="{% url 'inv:equipo_lista_sede' sd.sede.pk %}"
+     class="group flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3
+            hover:border-[#2F4156]/30 hover:shadow-md hover:bg-[#C8D9E6]/20 transition-all duration-200">
+    <div class="w-9 h-9 rounded-lg bg-[#C8D9E6]/60 group-hover:bg-[#C8D9E6] flex items-center justify-center shrink-0 transition-colors duration-200">
+      <i class="bi bi-geo-alt-fill text-[#2F4156] text-sm"></i>
+    </div>
+    <div class="flex-1 min-w-0">
+      <p class="text-sm font-semibold text-slate-700 group-hover:text-[#2F4156] transition-colors truncate">{{ sd.sede.nombre }}</p>
+      <p class="text-xs text-slate-400 truncate">
+        {{ sd.sede.institucion.nombre }}
+        {% if sd.total %}
+        <span class="text-slate-300 mx-1">·</span>{{ sd.total }} equipo{{ sd.total|pluralize }}
+        {% endif %}
+      </p>
+    </div>
+    <i class="bi bi-chevron-right text-slate-300 group-hover:text-[#2F4156] group-hover:translate-x-0.5 transition-all text-xs shrink-0"></i>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-14 text-center">
+  <i class="bi bi-building text-3xl text-slate-300 block mb-2"></i>
+  <p class="text-sm text-slate-400">No hay sedes configuradas.</p>
+</div>
+{% endif %}
+
+{% endblock %}

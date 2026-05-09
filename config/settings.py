@@ -32,6 +32,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.middleware.gzip.GZipMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -42,11 +43,22 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'config.urls'
 
+_template_loaders = (
+    [
+        'django.template.loaders.filesystem.Loader',
+        'django.template.loaders.app_directories.Loader',
+    ] if DEBUG else [
+        ('django.template.loaders.cached.Loader', [
+            'django.template.loaders.filesystem.Loader',
+            'django.template.loaders.app_directories.Loader',
+        ]),
+    ]
+)
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [BASE_DIR / 'templates'],
-        'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
@@ -54,6 +66,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
+            'loaders': _template_loaders,
         },
     },
 ]
@@ -68,6 +81,19 @@ DATABASES = {
         ssl_require=True,
     )
 }
+
+_redis_url = config('REDIS_URL', default=None)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': _redis_url,
+    } if _redis_url else {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'admti-cache',
+    }
+}
+
+SESSION_ENGINE = 'django.contrib.sessions.backends.cached_db'
 
 
 AUTH_PASSWORD_VALIDATORS = [

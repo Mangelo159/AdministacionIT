@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Marca, TipoEquipo, TipoPeriferico, TipoComponente, Modulo, Rol, Software
+from .models import Marca, TipoEquipo, TipoPeriferico, TipoComponente, ModeloComponente, Modulo, Rol, Software
 
 
 @admin.register(Marca)
@@ -18,16 +18,23 @@ class TipoEquipoAdmin(admin.ModelAdmin):
 
 @admin.register(TipoPeriferico)
 class TipoPerifericoAdmin(admin.ModelAdmin):
-    list_display = ['nombre', 'codigo', 'activo']
+    list_display = ['nombre', 'activo']
     list_filter = ['activo']
-    search_fields = ['nombre', 'codigo']
+    search_fields = ['nombre']
 
 
 @admin.register(TipoComponente)
 class TipoComponenteAdmin(admin.ModelAdmin):
-    list_display = ['nombre', 'codigo', 'activo']
+    list_display = ['nombre', 'activo']
     list_filter = ['activo']
-    search_fields = ['nombre', 'codigo']
+    search_fields = ['nombre']
+
+
+@admin.register(ModeloComponente)
+class ModeloComponenteAdmin(admin.ModelAdmin):
+    list_display = ['tipo', 'nombre', 'capacidad', 'marca', 'activo']
+    list_filter = ['tipo', 'marca', 'activo']
+    search_fields = ['nombre', 'capacidad']
 
 
 @admin.register(Rol)

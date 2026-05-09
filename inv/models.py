@@ -114,6 +114,9 @@ class Perfil(models.Model):
                 fields=['persona', 'rol'], name='unique_persona_rol',
             ),
         ]
+        indexes = [
+            models.Index(fields=['persona', 'activo'], name='perfil_persona_activo_idx'),
+        ]
 
     def __str__(self):
         return f'{self.persona.nombres_completos} - {self.rol.nombre}'
@@ -136,6 +139,9 @@ class Modulo(models.Model):
         verbose_name = 'Módulo'
         verbose_name_plural = 'Módulos'
         ordering = ['orden', 'nombre']
+        indexes = [
+            models.Index(fields=['activo', 'orden'], name='modulo_activo_orden_idx'),
+        ]
 
     def __str__(self):
         return self.nombre
@@ -211,7 +217,6 @@ class TipoEquipo(models.Model):
 
 class TipoPeriferico(models.Model):
     nombre = models.CharField(max_length=50, unique=True)
-    codigo = models.CharField(max_length=20, unique=True, help_text='Ej: TECLADO, MOUSE, MONITOR')
     activo = models.BooleanField(default=True)
 
     class Meta:
@@ -248,6 +253,9 @@ class Equipo(models.Model):
         verbose_name = 'Equipo'
         verbose_name_plural = 'Equipos'
         ordering = ['codigo']
+        indexes = [
+            models.Index(fields=['grupo', 'subgrupo'], name='equipo_grupo_subgrupo_idx'),
+        ]
 
     def __str__(self):
         return f'{self.codigo} - {self.tipo}'
@@ -255,7 +263,6 @@ class Equipo(models.Model):
 
 class TipoComponente(models.Model):
     nombre = models.CharField(max_length=50, unique=True)
-    codigo = models.CharField(max_length=20, unique=True, help_text='Ej: PROCESADOR, RAM, DISCO')
     activo = models.BooleanField(default=True)
 
     class Meta:
@@ -267,39 +274,63 @@ class TipoComponente(models.Model):
         return self.nombre
 
 
+class ModeloComponente(models.Model):
+    """Catálogo de modelos específicos por tipo (p. ej. Intel Core i5-10400, Kingston DDR4 8GB)."""
+    tipo = models.ForeignKey(TipoComponente, on_delete=models.PROTECT, related_name='modelos')
+    nombre = models.CharField(max_length=150, help_text='Ej: Intel Core i5-10400, Kingston DDR4')
+    capacidad = models.CharField(max_length=50, blank=True, help_text='Ej: 8 GB, 500 GB, 3.6 GHz')
+    marca = models.ForeignKey(Marca, on_delete=models.PROTECT, null=True, blank=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'Modelo de componente'
+        verbose_name_plural = 'Modelos de componentes'
+        ordering = ['tipo', 'nombre']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tipo', 'nombre', 'capacidad'],
+                name='unique_modelo_componente',
+            ),
+        ]
+
+    def __str__(self):
+        s = f'{self.tipo.nombre} — {self.nombre}'
+        if self.capacidad:
+            s += f' ({self.capacidad})'
+        return s
+
+
 class Componente(models.Model):
-    """Componentes internos del equipo: RAM, disco, procesador, etc."""
-    equipo = models.ForeignKey(Equipo,on_delete=models.CASCADE,related_name='componentes')
-    tipo = models.ForeignKey(TipoComponente,on_delete=models.PROTECT,related_name='componentes',)
-    descripcion = models.CharField(max_length=200,help_text='Ej: "Intel i5-10400", "8GB DDR4", "SSD 500GB Kingston"',)
-    capacidad = models.CharField(max_length=50,blank=True,help_text='Ej: "8GB", "500GB", "3.6GHz"',)
-    serie = models.CharField(max_length=100, blank=True)
+    """Componente interno de un equipo asignado desde el catálogo."""
+    equipo = models.ForeignKey(Equipo, on_delete=models.CASCADE, related_name='componentes')
+    modelo = models.ForeignKey(ModeloComponente, on_delete=models.PROTECT, related_name='usos',
+                               null=True, blank=True)
     activo = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = 'Componente'
         verbose_name_plural = 'Componentes'
-        ordering = ['equipo', 'tipo']
+        ordering = ['equipo', 'modelo__tipo', 'modelo__nombre']
 
     def __str__(self):
-        return f'{self.tipo.nombre}: {self.descripcion}'
+        return f'{self.modelo} — {self.equipo.codigo}'
 
 
 class Periferico(models.Model):
-    codigo = models.CharField(max_length=50, unique=True)
     tipo = models.ForeignKey(TipoPeriferico, on_delete=models.PROTECT)
-    marca = models.ForeignKey(Marca, on_delete=models.PROTECT, null=True, blank=True,)
-    equipo = models.ForeignKey(Equipo, on_delete=models.SET_NULL,null=True, blank=True, related_name='perifericos',help_text='Equipo al que está conectado (puede estar suelto en bodega)')
+    marca = models.ForeignKey(Marca, on_delete=models.PROTECT, null=True, blank=True)
+    equipo = models.ForeignKey(Equipo, on_delete=models.SET_NULL, null=True, blank=True,related_name='perifericos',help_text='Equipo al que está conectado (puede estar suelto en bodega)')
     activo = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name = 'Periférico'
         verbose_name_plural = 'Periféricos'
-        ordering = ['codigo']
+        ordering = ['tipo__nombre']
 
     def __str__(self):
-        return f'{self.codigo} - {self.tipo}'
+        marca = f' {self.marca.nombre}' if self.marca_id else ''
+        return f'{self.tipo.nombre}{marca}'
 
 
 class Software(models.Model):
