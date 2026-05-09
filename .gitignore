@@ -26,3 +26,6 @@ media/
 *.egg-info/
 dist/
 build/
+
+# Excepcion: CSS compilado de Tailwind debe subirse
+!theme/static/css/dist/
