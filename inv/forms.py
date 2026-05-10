@@ -1,7 +1,7 @@
 from django import forms
 from .models import (Marca, TipoEquipo, TipoPeriferico, TipoComponente, ModeloComponente,
                      Institucion, Sede, Grupo, Subgrupo, Rol, Persona, Perfil, Modulo, Software,
-                     Equipo, Componente, Periferico, InstalacionSoftware)
+                     Equipo, Componente, Periferico, InstalacionSoftware, Dispositivo)
 
 
 class MarcaForm(forms.ModelForm):
@@ -198,7 +198,7 @@ class EquipoForm(forms.ModelForm):
 
     class Meta:
         model = Equipo
-        fields = ['codigo', 'tipo', 'grupo', 'subgrupo', 'observaciones', 'activo']
+        fields = ['codigo', 'tipo', 'grupo', 'subgrupo', 'ip', 'observaciones', 'activo']
         widgets = {
             'codigo': forms.TextInput(attrs={'class': 'form-control', 'autofocus': True}),
             'tipo': forms.Select(attrs={'class': 'form-select'}),
@@ -207,8 +207,30 @@ class EquipoForm(forms.ModelForm):
                 '@change': 'onGrupoChange($event.target.value)',
             }),
             'subgrupo': forms.Select(attrs={'class': 'form-select'}),
+            'ip': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 192.168.1.100'}),
             'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class DispositivoForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['subgrupo'].queryset = Subgrupo.objects.select_related('grupo__sede').filter(activo=True)
+        self.fields['tipo'].queryset = TipoPeriferico.objects.filter(activo=True).order_by('nombre')
+        self.fields['marca'].queryset = Marca.objects.filter(activo=True).order_by('nombre')
+
+    class Meta:
+        model = Dispositivo
+        fields = ['subgrupo', 'tipo', 'marca', 'ip', 'extension', 'activo', 'observaciones']
+        widgets = {
+            'subgrupo': forms.Select(attrs={'class': 'form-select'}),
+            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'marca': forms.Select(attrs={'class': 'form-select'}),
+            'ip': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 192.168.1.100'}),
+            'extension': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 104'}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
 
 

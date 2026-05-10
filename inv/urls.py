@@ -13,6 +13,8 @@ urlpatterns = [
     path('inventario/equipos/subgrupos-json/', views.subgrupos_json, name='subgrupos_json'),
     path('inventario/equipos/modelos-componente-json/', views.modelos_componente_json, name='modelos_componente_json'),
     path('inventario/equipos/sede/<int:sede_pk>/', views.EquipoSedeView.as_view(), name='equipo_lista_sede'),
+    path('inventario/equipos/grupo/<int:grupo_pk>/', views.EquipoGrupoView.as_view(), name='equipo_lista_grupo'),
+    path('inventario/equipos/subgrupo/<int:subgrupo_pk>/', views.EquipoSubgrupoView.as_view(), name='equipo_lista_subgrupo'),
     path('inventario/equipos/nuevo/', views.EquipoCreateView.as_view(), name='equipo_crear'),
     path('inventario/equipos/<int:pk>/', views.EquipoDetailView.as_view(), name='equipo_detalle'),
     path('inventario/equipos/<int:pk>/editar/', views.EquipoUpdateView.as_view(), name='equipo_editar'),
@@ -33,6 +35,13 @@ urlpatterns = [
     path('inventario/equipos/<int:equipo_pk>/software/agregar/', views.instalacion_create, name='instalacion_crear'),
     path('inventario/equipos/<int:equipo_pk>/software/<int:pk>/editar/', views.instalacion_update, name='instalacion_editar'),
     path('inventario/equipos/<int:equipo_pk>/software/<int:pk>/eliminar/', views.instalacion_delete, name='instalacion_eliminar'),
+
+    # Dispositivos
+    path('dispositivos/', views.DispositivoListView.as_view(), name='dispositivo_lista'),
+    path('dispositivos/nuevo/', views.DispositivoCreateView.as_view(), name='dispositivo_crear'),
+    path('dispositivos/<int:pk>/editar/', views.DispositivoUpdateView.as_view(), name='dispositivo_editar'),
+    path('dispositivos/<int:pk>/toggle/', views.dispositivo_toggle, name='dispositivo_toggle'),
+    path('dispositivos/<int:pk>/eliminar/', views.dispositivo_delete, name='dispositivo_eliminar'),
 
     # Marcas
     path('marcas/', views.MarcaListView.as_view(), name='marca_lista'),
@@ -108,6 +117,7 @@ urlpatterns = [
     path('personas/<int:pk>/editar/', views.PersonaUpdateView.as_view(), name='persona_editar'),
     path('personas/<int:pk>/toggle/', views.persona_toggle, name='persona_toggle'),
     path('personas/<int:pk>/eliminar/', views.persona_delete, name='persona_eliminar'),
+    path('personas/<int:pk>/clave/', views.persona_cambiar_clave, name='persona_cambiar_clave'),
 
     # Perfiles
     path('perfiles/', views.PerfilListView.as_view(), name='perfil_lista'),

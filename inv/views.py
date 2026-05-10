@@ -12,17 +12,17 @@ from django.urls import reverse_lazy, reverse, NoReverseMatch
 from django.views.decorators.http import require_POST
 import json
 from datetime import date
-from django.db.models import Q, ProtectedError, Case, When, Value, F, IntegerField
+from django.db.models import Q, ProtectedError, Case, When, Value, F, IntegerField, Count
 
 from .models import (Marca, TipoEquipo, TipoPeriferico, TipoComponente, ModeloComponente,
                      Modulo, Perfil, Institucion, Sede, Grupo, Subgrupo, Rol, Persona, Software,
-                     Equipo, Componente, Periferico, InstalacionSoftware,
+                     Equipo, Componente, Periferico, InstalacionSoftware, Dispositivo,
                      sedes_permitidas)
 from .forms import (MarcaForm, TipoEquipoForm, TipoPerifericoForm, TipoComponenteForm,
                     ModeloComponenteForm,
                     InstitucionForm, SedeForm, GrupoForm, SubgrupoForm,
                     RolForm, PersonaForm, PerfilForm, ModuloForm, SoftwareForm,
-                    EquipoForm, ComponenteForm, PerifericoForm, InstalacionSoftwareForm)
+                    EquipoForm, DispositivoForm, ComponenteForm, PerifericoForm, InstalacionSoftwareForm)
 
 
 def _sedes_ids(user):
@@ -196,6 +196,7 @@ def tipo_equipo_toggle(request, pk):
     obj = get_object_or_404(TipoEquipo, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
+    _invalidar_catalogos()
     messages.success(request, f'Tipo de equipo {"activado" if obj.activo else "desactivado"}.')
     return redirect('inv:tipo_equipo_lista')
 
@@ -207,6 +208,7 @@ def tipo_equipo_delete(request, pk):
     nombre = obj.nombre
     try:
         obj.delete()
+        _invalidar_catalogos()
         messages.success(request, f'Tipo de equipo "{nombre}" eliminado.')
     except ProtectedError:
         messages.error(request, f'No se puede eliminar el tipo de equipo "{nombre}" porque tiene registros asociados.')
@@ -670,6 +672,25 @@ def persona_toggle(request, pk):
 
 @login_required
 @require_POST
+def persona_cambiar_clave(request, pk):
+    obj = get_object_or_404(Persona, pk=pk)
+    clave1 = request.POST.get('clave1', '').strip()
+    clave2 = request.POST.get('clave2', '').strip()
+    if not clave1:
+        messages.error(request, 'La clave no puede estar vacía.')
+    elif clave1 != clave2:
+        messages.error(request, 'Las claves no coinciden.')
+    elif len(clave1) < 6:
+        messages.error(request, 'La clave debe tener al menos 6 caracteres.')
+    else:
+        obj.user.set_password(clave1)
+        obj.user.save(update_fields=['password'])
+        messages.success(request, f'Clave de <strong>{obj.nombres_completos}</strong> actualizada correctamente.')
+    return redirect('inv:persona_lista')
+
+
+@login_required
+@require_POST
 def persona_delete(request, pk):
     obj = get_object_or_404(Persona, pk=pk)
     nombre = obj.nombre
@@ -866,6 +887,13 @@ def software_delete(request, pk):
 _CATALOG_TTL = 900  # 15 minutos
 
 
+def _parse_json_field(data, key):
+    try:
+        return json.loads(data.get(key, '[]') or '[]')
+    except (ValueError, TypeError):
+        return []
+
+
 def _catalogo_cached(key, queryset_fn):
     """Devuelve datos de catálogo desde caché; los recalcula si expiraron."""
     data = cache.get(key)
@@ -876,33 +904,43 @@ def _catalogo_cached(key, queryset_fn):
 
 
 def _invalidar_catalogos():
-    cache.delete_many(['tc_json', 'tp_json', 'marcas_json', 'sw_json', 'grupos_activos'])
+    cache.delete_many(['tc_json', 'tp_json', 'marcas_json', 'sw_json', 'grupos_activos', 'te_json'])
 
 
 class EquipoListView(LoginRequiredMixin, View):
     template_name = 'inv/inventario/equipo_lista.html'
 
     def get(self, request):
+        from django.db.models import Count
         sedes_ids = _sedes_ids(request.user)
         sedes_qs = Sede.objects.select_related('institucion').filter(activo=True).order_by('nombre')
         if sedes_ids is not None:
             sedes_qs = sedes_qs.filter(id__in=sedes_ids)
 
-        qs = Equipo.objects.select_related('grupo__sede', 'subgrupo__grupo__sede')
+        # COUNT GROUP BY en la BD en lugar de cargar todos los equipos en Python
+        grupo_q = (
+            Equipo.objects
+            .filter(subgrupo__isnull=True, grupo__isnull=False)
+            .values('grupo__sede_id')
+            .annotate(total=Count('id'))
+        )
+        subgrupo_q = (
+            Equipo.objects
+            .filter(subgrupo__isnull=False)
+            .values('subgrupo__grupo__sede_id')
+            .annotate(total=Count('id'))
+        )
         if sedes_ids is not None:
-            qs = qs.filter(
-                Q(grupo__sede__id__in=sedes_ids) | Q(subgrupo__grupo__sede__id__in=sedes_ids)
-            )
+            grupo_q = grupo_q.filter(grupo__sede__id__in=sedes_ids)
+            subgrupo_q = subgrupo_q.filter(subgrupo__grupo__sede__id__in=sedes_ids)
 
         conteo = {}
-        for eq in qs:
-            if eq.subgrupo_id:
-                sid = eq.subgrupo.grupo.sede_id
-            elif eq.grupo_id:
-                sid = eq.grupo.sede_id
-            else:
-                continue
-            conteo[sid] = conteo.get(sid, 0) + 1
+        for row in grupo_q:
+            sid = row['grupo__sede_id']
+            conteo[sid] = conteo.get(sid, 0) + row['total']
+        for row in subgrupo_q:
+            sid = row['subgrupo__grupo__sede_id']
+            conteo[sid] = conteo.get(sid, 0) + row['total']
 
         sedes_data = [
             {'sede': sede, 'total': conteo.get(sede.pk, 0)}
@@ -914,104 +952,103 @@ class EquipoListView(LoginRequiredMixin, View):
 class EquipoSedeView(LoginRequiredMixin, View):
     template_name = 'inv/inventario/equipo_sede.html'
 
-    @staticmethod
-    def _parse_json_field(data, key):
-        try:
-            return json.loads(data.get(key, '[]') or '[]')
-        except (ValueError, TypeError):
-            return []
-
-    def _get_sede(self, request, sede_pk):
+    def get(self, request, sede_pk):
         sedes_ids = _sedes_ids(request.user)
         qs = Sede.objects.select_related('institucion').filter(pk=sede_pk, activo=True)
         if sedes_ids is not None:
             qs = qs.filter(id__in=sedes_ids)
-        return get_object_or_404(qs)
+        sede = get_object_or_404(qs)
+        grupos = (
+            Grupo.objects.filter(sede=sede, activo=True)
+            .order_by('nombre')
+            .annotate(
+                num_subgrupos=Count('subgrupos', filter=Q(subgrupos__activo=True), distinct=True),
+                num_equipos=Count('equipos', distinct=True),
+            )
+        )
+        return render(request, self.template_name, {'sede': sede, 'grupos': grupos})
 
-    def _build_context(self, request, sede, form, modal_open=False):
-        q = request.GET.get('q', '').strip()
-        equipos = Equipo.objects.select_related(
-            'tipo', 'grupo__sede', 'subgrupo__grupo__sede'
-        ).filter(
-            Q(grupo__sede=sede) | Q(subgrupo__grupo__sede=sede)
-        ).order_by('codigo')
-        if q:
-            equipos = equipos.filter(Q(codigo__icontains=q) | Q(tipo__nombre__icontains=q))
 
-        grupo_id = form.data.get('grupo') if form.is_bound else None
-        initial_subgrupos = list(
-            Subgrupo.objects.filter(grupo_id=grupo_id, activo=True).values('id', 'nombre')
-        ) if grupo_id else []
+class EquipoGrupoView(LoginRequiredMixin, View):
+    template_name = 'inv/inventario/equipo_grupo.html'
 
-        pj = self._parse_json_field
+    def get(self, request, grupo_pk):
+        grupo = get_object_or_404(Grupo.objects.select_related('sede__institucion'), pk=grupo_pk, activo=True)
+        subgrupos = (
+            Subgrupo.objects.filter(grupo=grupo, activo=True)
+            .order_by('nombre')
+            .annotate(
+                num_equipos=Count('equipos', distinct=True),
+                num_dispositivos=Count('dispositivos', distinct=True),
+            )
+        )
+        return render(request, self.template_name, {
+            'grupo': grupo,
+            'sede': grupo.sede,
+            'subgrupos': subgrupos,
+            'tipos_equipo': TipoEquipo.objects.filter(activo=True).order_by('nombre'),
+            'tipos_periferico': TipoPeriferico.objects.filter(activo=True).order_by('nombre'),
+            'marcas': Marca.objects.filter(activo=True).order_by('nombre'),
+        })
+
+
+class EquipoSubgrupoView(LoginRequiredMixin, View):
+    template_name = 'inv/inventario/equipo_subgrupo.html'
+
+    def _ctx(self, request, subgrupo, form, modal_open=False):
         return {
-            'sede': sede,
-            'equipos': equipos,
-            'q': q,
+            'subgrupo': subgrupo,
+            'grupo': subgrupo.grupo,
+            'sede': subgrupo.grupo.sede,
+            'equipos': Equipo.objects.filter(subgrupo=subgrupo).select_related('tipo').order_by('codigo'),
+            'dispositivos': Dispositivo.objects.filter(subgrupo=subgrupo).select_related('tipo', 'marca').order_by('tipo__nombre'),
             'form': form,
             'modal_open': modal_open,
-            'initial_subgrupos': initial_subgrupos,
             'tc_json': _catalogo_cached('tc_json', lambda: TipoComponente.objects.filter(activo=True).values('id', 'nombre')),
             'tp_json': _catalogo_cached('tp_json', lambda: TipoPeriferico.objects.filter(activo=True).values('id', 'nombre')),
             'marcas_json': _catalogo_cached('marcas_json', lambda: Marca.objects.filter(activo=True).values('id', 'nombre')),
             'sw_json': _catalogo_cached('sw_json', lambda: Software.objects.filter(activo=True).values('id', 'nombre')),
-            'init_comp': pj(form.data, 'componentes_json') if form.is_bound else [],
-            'init_peri': pj(form.data, 'perifericos_json') if form.is_bound else [],
-            'init_sw':   pj(form.data, 'software_json')    if form.is_bound else [],
+            'te_json': _catalogo_cached('te_json', lambda: TipoEquipo.objects.filter(activo=True).values('id', 'nombre')),
+            'tipos_periferico': TipoPeriferico.objects.filter(activo=True).order_by('nombre'),
+            'marcas': Marca.objects.filter(activo=True).order_by('nombre'),
+            'init_comp': _parse_json_field(form.data, 'componentes_json') if form.is_bound else [],
+            'init_peri': _parse_json_field(form.data, 'perifericos_json') if form.is_bound else [],
+            'init_sw':   _parse_json_field(form.data, 'software_json')    if form.is_bound else [],
         }
 
-    def get(self, request, sede_pk):
-        sede = self._get_sede(request, sede_pk)
-        return render(request, self.template_name, self._build_context(request, sede, EquipoForm()))
+    def get(self, request, subgrupo_pk):
+        subgrupo = get_object_or_404(Subgrupo.objects.select_related('grupo__sede__institucion'), pk=subgrupo_pk, activo=True)
+        return render(request, self.template_name, self._ctx(request, subgrupo, EquipoForm()))
 
-    def post(self, request, sede_pk):
-        sede = self._get_sede(request, sede_pk)
+    def post(self, request, subgrupo_pk):
+        subgrupo = get_object_or_404(Subgrupo.objects.select_related('grupo__sede__institucion'), pk=subgrupo_pk, activo=True)
         form = EquipoForm(request.POST)
         if form.is_valid():
             equipo = form.save()
-            pj = self._parse_json_field
-
-            for c in pj(request.POST, 'componentes_json'):
+            for c in _parse_json_field(request.POST, 'componentes_json'):
                 if c.get('modelo'):
                     try:
-                        Componente.objects.create(
-                            equipo=equipo,
-                            modelo_id=int(c['modelo']),
-                            activo=bool(c.get('activo', True)),
-                        )
+                        Componente.objects.create(equipo=equipo, modelo_id=int(c['modelo']), activo=bool(c.get('activo', True)))
                     except Exception:
                         pass
-
-            for p in pj(request.POST, 'perifericos_json'):
+            for p in _parse_json_field(request.POST, 'perifericos_json'):
                 if p.get('tipo'):
                     try:
-                        Periferico.objects.create(
-                            equipo=equipo,
-                            tipo_id=int(p['tipo']),
-                            marca_id=int(p['marca']) if p.get('marca') else None,
-                            activo=bool(p.get('activo', True)),
-                        )
+                        Periferico.objects.create(equipo=equipo, tipo_id=int(p['tipo']), marca_id=int(p['marca']) if p.get('marca') else None, activo=bool(p.get('activo', True)))
                     except Exception:
                         pass
-
-            for s in pj(request.POST, 'software_json'):
+            for s in _parse_json_field(request.POST, 'software_json'):
                 if s.get('software'):
                     try:
-                        InstalacionSoftware.objects.create(
-                            equipo=equipo,
-                            software_id=int(s['software']),
-                            version=s.get('version') or '',
-                            fecha_instalacion=s.get('fecha_instalacion') or None,
-                            fecha_vencimiento=s.get('fecha_vencimiento') or None,
-                            observaciones=s.get('observaciones') or '',
-                        )
+                        InstalacionSoftware.objects.create(equipo=equipo, software_id=int(s['software']), version=s.get('version') or '', fecha_instalacion=s.get('fecha_instalacion') or None, fecha_vencimiento=s.get('fecha_vencimiento') or None, observaciones=s.get('observaciones') or '')
                     except Exception:
                         pass
-
             messages.success(request, 'Equipo creado.')
-            return redirect('inv:equipo_detalle', pk=equipo.pk)
-        return render(request, self.template_name,
-                      self._build_context(request, sede, form, modal_open=True))
+            next_url = request.POST.get('next', '')
+            if next_url and next_url.startswith('/'):
+                return redirect(next_url)
+            return redirect('inv:equipo_lista_subgrupo', subgrupo_pk=subgrupo.pk)
+        return render(request, self.template_name, self._ctx(request, subgrupo, form, modal_open=True))
 
 
 class EquipoDetailView(LoginRequiredMixin, DetailView):
@@ -1032,6 +1069,12 @@ class EquipoDetailView(LoginRequiredMixin, DetailView):
         ctx['marcas'] = Marca.objects.filter(activo=True)
         ctx['software_catalog'] = Software.objects.filter(activo=True)
         ctx['today'] = date.today()
+        if equipo.subgrupo_id:
+            ctx['dispositivos'] = Dispositivo.objects.filter(
+                subgrupo=equipo.subgrupo
+            ).select_related('tipo', 'marca').order_by('tipo__nombre')
+        else:
+            ctx['dispositivos'] = Dispositivo.objects.none()
         return ctx
 
 
@@ -1065,6 +1108,9 @@ class EquipoUpdateView(LoginRequiredMixin, UpdateView):
     template_name = 'inv/inventario/equipo_form.html'
 
     def get_success_url(self):
+        next_url = self.request.POST.get('next') or self.request.GET.get('next')
+        if next_url and next_url.startswith('/'):
+            return next_url
         return reverse('inv:equipo_detalle', kwargs={'pk': self.object.pk})
 
     def form_valid(self, form):
@@ -1093,6 +1139,9 @@ def equipo_toggle(request, pk):
     equipo.activo = not equipo.activo
     equipo.save(update_fields=['activo'])
     messages.success(request, f'Equipo {"activado" if equipo.activo else "desactivado"}.')
+    next_url = request.POST.get('next', '')
+    if next_url and next_url.startswith('/'):
+        return redirect(next_url)
     return redirect('inv:equipo_lista')
 
 
@@ -1106,6 +1155,9 @@ def equipo_delete(request, pk):
         messages.success(request, f'Equipo "{codigo}" eliminado.')
     except ProtectedError:
         messages.error(request, f'No se puede eliminar "{codigo}" porque tiene registros asociados.')
+    next_url = request.POST.get('next', '')
+    if next_url and next_url.startswith('/'):
+        return redirect(next_url)
     return redirect('inv:equipo_lista')
 
 
@@ -1201,6 +1253,99 @@ def modelo_componente_delete(request, pk):
     except ProtectedError:
         messages.error(request, f'No se puede eliminar "{nombre}" porque tiene componentes asociados.')
     return redirect('inv:modelo_componente_lista')
+
+
+# ── DISPOSITIVO ──────────────────────────────────────────────────────────────
+
+class DispositivoListView(LoginRequiredMixin, View):
+    template_name = 'inv/inventario/dispositivo_lista.html'
+
+    def get(self, request):
+        q = request.GET.get('q', '').strip()
+        subgrupo_id = request.GET.get('subgrupo', '')
+        tipo_id = request.GET.get('tipo', '')
+
+        subgrupos_qs = Subgrupo.objects.select_related('grupo__sede').filter(activo=True).order_by('grupo__sede__nombre', 'grupo__nombre', 'nombre')
+        tipos_qs = TipoPeriferico.objects.filter(activo=True).order_by('nombre')
+        marcas_qs = Marca.objects.filter(activo=True).order_by('nombre')
+
+        qs = Dispositivo.objects.select_related('subgrupo__grupo__sede', 'tipo', 'marca')
+        if q:
+            qs = qs.filter(
+                Q(tipo__nombre__icontains=q) | Q(ip__icontains=q) |
+                Q(extension__icontains=q) | Q(marca__nombre__icontains=q) |
+                Q(subgrupo__nombre__icontains=q)
+            )
+        if subgrupo_id:
+            qs = qs.filter(subgrupo_id=subgrupo_id)
+        if tipo_id:
+            qs = qs.filter(tipo_id=tipo_id)
+
+        paginator = Paginator(qs, 20)
+        page_obj = paginator.get_page(request.GET.get('page'))
+        return render(request, self.template_name, {
+            'objetos': page_obj,
+            'page_obj': page_obj,
+            'is_paginated': page_obj.has_other_pages(),
+            'titulo': 'Dispositivos',
+            'q': q,
+            'subgrupos': subgrupos_qs,
+            'tipos': tipos_qs,
+            'marcas': marcas_qs,
+            'subgrupo_sel': subgrupo_id,
+            'tipo_sel': tipo_id,
+        })
+
+
+class DispositivoCreateView(_CatalogoForm, CreateView):
+    model = Dispositivo
+    form_class = DispositivoForm
+
+    def get_success_url(self):
+        next_url = self.request.POST.get('next') or self.request.GET.get('next')
+        if next_url and next_url.startswith('/'):
+            return next_url
+        return reverse('inv:dispositivo_lista')
+
+
+class DispositivoUpdateView(_CatalogoForm, UpdateView):
+    model = Dispositivo
+    form_class = DispositivoForm
+
+    def get_success_url(self):
+        next_url = self.request.POST.get('next') or self.request.GET.get('next')
+        if next_url and next_url.startswith('/'):
+            return next_url
+        return reverse('inv:dispositivo_lista')
+
+
+@login_required
+@require_POST
+def dispositivo_toggle(request, pk):
+    obj = get_object_or_404(Dispositivo, pk=pk)
+    obj.activo = not obj.activo
+    obj.save(update_fields=['activo'])
+    messages.success(request, f'Dispositivo {"activado" if obj.activo else "desactivado"}.')
+    next_url = request.POST.get('next', '')
+    if next_url and next_url.startswith('/'):
+        return redirect(next_url)
+    return redirect('inv:dispositivo_lista')
+
+
+@login_required
+@require_POST
+def dispositivo_delete(request, pk):
+    obj = get_object_or_404(Dispositivo, pk=pk)
+    nombre = str(obj)
+    try:
+        obj.delete()
+        messages.success(request, f'Dispositivo "{nombre}" eliminado.')
+    except ProtectedError:
+        messages.error(request, f'No se puede eliminar "{nombre}" porque tiene registros asociados.')
+    next_url = request.POST.get('next', '')
+    if next_url and next_url.startswith('/'):
+        return redirect(next_url)
+    return redirect('inv:dispositivo_lista')
 
 
 # ── COMPONENTE ────────────────────────────────────────────────────────────────

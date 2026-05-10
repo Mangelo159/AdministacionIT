@@ -94,6 +94,17 @@
             {% endif %}
           </div>
 
+          <!-- IP -->
+          <div class="mb-4">
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+              Dirección IP <span class="text-xs font-normal text-slate-400 normal-case tracking-normal">(opcional)</span>
+            </label>
+            {{ form.ip }}
+            {% if form.ip.errors %}
+            <p class="mt-1 text-xs text-red-600">{{ form.ip.errors|join:", " }}</p>
+            {% endif %}
+          </div>
+
           <!-- Observaciones -->
           <div class="mb-4">
             <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">

@@ -84,7 +84,8 @@ class Persona(models.Model):
         return ' '.join(p for p in partes if p)
 
     def _crear_usuario(self):
-        base_username = f'{_limpiar(self.nombre)}.{_limpiar(self.apellido1)}'
+        inicial = _limpiar(self.nombre.split()[0])[0]
+        base_username = f'{inicial}{_limpiar(self.apellido1)}'
         username = base_username
         contador = 1
         while User.objects.filter(username=username).exists():
@@ -233,6 +234,7 @@ class Equipo(models.Model):
     tipo = models.ForeignKey(TipoEquipo, on_delete=models.PROTECT)
     grupo = models.ForeignKey(Grupo, on_delete=models.PROTECT, null=True, blank=True, related_name='equipos')
     subgrupo = models.ForeignKey(Subgrupo, on_delete=models.PROTECT, null=True, blank=True, related_name='equipos')
+    ip = models.CharField(max_length=45, blank=True, verbose_name='Dirección IP')
     observaciones = models.TextField(blank=True)
     activo = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
@@ -370,6 +372,27 @@ class InstalacionSoftware(models.Model):
 
     def __str__(self):
         return f'{self.software} en {self.equipo.codigo}'
+
+
+class Dispositivo(models.Model):
+    """Dispositivo de sala/área: proyector, teléfono, impresora, pantalla interactiva, etc."""
+    subgrupo = models.ForeignKey(Subgrupo, on_delete=models.PROTECT, related_name='dispositivos')
+    tipo = models.ForeignKey(TipoPeriferico, on_delete=models.PROTECT)
+    marca = models.ForeignKey(Marca, on_delete=models.PROTECT, null=True, blank=True)
+    ip = models.CharField(max_length=45, blank=True, verbose_name='Dirección IP')
+    extension = models.CharField(max_length=20, blank=True, verbose_name='Extensión')
+    activo = models.BooleanField(default=True)
+    observaciones = models.TextField(blank=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Dispositivo'
+        verbose_name_plural = 'Dispositivos'
+        ordering = ['subgrupo__grupo__nombre', 'subgrupo__nombre', 'tipo__nombre']
+
+    def __str__(self):
+        marca = f' {self.marca.nombre}' if self.marca_id else ''
+        return f'{self.tipo.nombre}{marca} — {self.subgrupo}'
 
 
 # ============================================================

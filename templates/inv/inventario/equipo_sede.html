@@ -1,631 +1,78 @@
 {% extends 'base.html' %}
 {% block title %}{{ sede.nombre }} — Equipos{% endblock %}
 
-{% block extra_css %}<style>[x-cloak]{display:none!important}</style>{% endblock %}
-
-{% block extra_js %}
-<script>
-window._SGURL = "{% url 'inv:subgrupos_json' %}";
-window._MCURL = "{% url 'inv:modelos_componente_json' %}";
-
-document.addEventListener('alpine:init', () => {
-  Alpine.data('equipoSede', (modalOpen, grupoIdInit, sgValInit) => ({
-    /* ── Modal / tab state ─────────────────────────────── */
-    createOpen: modalOpen,
-    tab: 'equipo',
-    deleteOpen: false, deleteNombre: '', deleteUrl: '',
-
-    /* ── Grupo / subgrupo ──────────────────────────────── */
-    grupoId: grupoIdInit,
-    subgrupos: [],
-    subgrupoValue: sgValInit,
-    async onGrupoChange(val) {
-      this.grupoId = val || null;
-      this.subgrupoValue = null;
-      if (!val) { this.subgrupos = []; return; }
-      const d = await (await fetch(`${window._SGURL}?grupo_id=${val}`)).json();
-      this.subgrupos = d.subgrupos;
-    },
-
-    /* ── Catálogos ─────────────────────────────────────── */
-    tc: [], tp: [], mr: [], swc: [],
-
-    /* ── Componentes ───────────────────────────────────── */
-    componentes: [],
-    newComp: { tipo: '', modelos: [], modelo: '', activo: true },
-    async onCompTipoChange(val) {
-      this.newComp.tipo = val;
-      this.newComp.modelo = '';
-      if (!val) { this.newComp.modelos = []; return; }
-      const d = await (await fetch(`${window._MCURL}?tipo_id=${val}`)).json();
-      this.newComp.modelos = d.modelos;
-    },
-    addComp() {
-      if (!this.newComp.modelo) return;
-      const t = this.tc.find(x => x.id == this.newComp.tipo);
-      const m = this.newComp.modelos.find(x => x.id == this.newComp.modelo);
-      this.componentes.push({
-        modelo: this.newComp.modelo,
-        tipo_nombre: t ? t.nombre : '',
-        modelo_nombre: m ? m.nombre : '',
-        capacidad: m ? m.capacidad : '',
-        activo: this.newComp.activo,
-      });
-      this.newComp = { tipo: '', modelos: [], modelo: '', activo: true };
-    },
-
-    /* ── Periféricos ───────────────────────────────────── */
-    perifericos: [],
-    newPeri: { tipo: '', marca: '', activo: true },
-    addPeri() {
-      if (!this.newPeri.tipo) return;
-      const t = this.tp.find(x => x.id == this.newPeri.tipo);
-      const m = this.mr.find(x => x.id == this.newPeri.marca);
-      this.perifericos.push({ ...this.newPeri, tipo_nombre: t ? t.nombre : '', marca_nombre: m ? m.nombre : '' });
-      this.newPeri = { tipo: '', marca: '', activo: true };
-    },
-
-    /* ── Software ──────────────────────────────────────── */
-    swList: [],
-    newSw: { software: '', version: '', fecha_instalacion: '', fecha_vencimiento: '', observaciones: '' },
-    addSw() {
-      if (!this.newSw.software) return;
-      const s = this.swc.find(x => x.id == this.newSw.software);
-      this.swList.push({ ...this.newSw, software_nombre: s ? s.nombre : '' });
-      this.newSw = { software: '', version: '', fecha_instalacion: '', fecha_vencimiento: '', observaciones: '' };
-    },
-
-    /* ── Inicialización ────────────────────────────────── */
-    init() {
-      const g = id => JSON.parse(document.getElementById(id).textContent);
-      this.subgrupos   = g('init-sg');
-      this.tc          = g('tc-data');
-      this.tp          = g('tp-data');
-      this.mr          = g('mr-data');
-      this.swc         = g('sw-data');
-      this.componentes = g('init-comp');
-      this.perifericos = g('init-peri');
-      this.swList      = g('init-sw');
-    },
-  }));
-});
-</script>
-{% endblock %}
-
 {% block content %}
-{{ initial_subgrupos|json_script:"init-sg" }}
-{{ tc_json|json_script:"tc-data" }}
-{{ tp_json|json_script:"tp-data" }}
-{{ marcas_json|json_script:"mr-data" }}
-{{ sw_json|json_script:"sw-data" }}
-{{ init_comp|json_script:"init-comp" }}
-{{ init_peri|json_script:"init-peri" }}
-{{ init_sw|json_script:"init-sw" }}
 
-<div x-data='equipoSede({{ modal_open|yesno:"true,false" }}, {{ form.grupo.value|default:"null" }}, {{ form.subgrupo.value|default:"null" }})'
-     @open-equipo-delete.window="deleteNombre=$event.detail.nombre; deleteUrl=$event.detail.url; deleteOpen=true">
-
-  <!-- ── ENCABEZADO ─────────────────────────────────────────────────────────── -->
-  <div class="flex items-center justify-between gap-4 mb-5">
-    <div>
-      <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
-        <a href="{% url 'inv:home' %}" class="hover:text-[#2F4156] transition-colors">Inicio</a>
-        <i class="bi bi-chevron-right text-[10px]"></i>
-        <a href="{% url 'inv:equipo_lista' %}" class="hover:text-[#2F4156] transition-colors">Equipos</a>
-        <i class="bi bi-chevron-right text-[10px]"></i>
-        <span class="text-slate-600 font-medium">{{ sede.nombre }}</span>
-      </div>
-      <h1 class="text-xl font-bold text-slate-800">{{ sede.nombre }}</h1>
-      <p class="text-slate-400 text-xs mt-0.5">{{ sede.institucion.nombre }}</p>
+<div class="flex items-center justify-between gap-4 mb-6">
+  <div>
+    <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
+      <a href="{% url 'inv:home' %}" class="hover:text-[#2F4156] transition-colors">Inicio</a>
+      <i class="bi bi-chevron-right text-[10px]"></i>
+      <a href="{% url 'inv:equipo_lista' %}" class="hover:text-[#2F4156] transition-colors">Equipos</a>
+      <i class="bi bi-chevron-right text-[10px]"></i>
+      <span class="text-slate-600 font-medium">{{ sede.nombre }}</span>
     </div>
-    <div class="flex items-center gap-2 shrink-0">
-      <a href="{% url 'inv:equipo_lista' %}"
-         class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600
-                text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
-        <i class="bi bi-arrow-left text-xs"></i>Atrás
-      </a>
-      <button @click="createOpen = true; tab = 'equipo'"
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2F4156] text-white text-sm font-medium
-                     rounded-lg hover:bg-[#3a5068] transition-colors shadow-sm">
-        <i class="bi bi-plus-lg"></i>Nuevo equipo
-      </button>
-    </div>
+    <h1 class="text-xl font-bold text-slate-800">{{ sede.nombre }}</h1>
+    <p class="text-slate-400 text-xs mt-0.5">{{ sede.institucion.nombre }}</p>
   </div>
-
-  <!-- ── MODAL CREAR EQUIPO ────────────────────────────────────────────────── -->
-  <div x-show="createOpen"
-       x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-       class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none">
-    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="createOpen = false"></div>
-
-    <div x-show="createOpen"
-         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95 translate-y-2"
-         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
-         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 scale-100"
-         x-transition:leave-end="opacity-0 scale-95 translate-y-2"
-         class="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col z-10"
-         style="max-height:90vh">
-
-      <!-- Cabecera -->
-      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-        <div class="flex items-center gap-2">
-          <div class="w-7 h-7 bg-[#2F4156]/10 rounded-lg flex items-center justify-center shrink-0">
-            <i class="bi bi-pc-display text-[#2F4156] text-xs"></i>
-          </div>
-          <h2 class="text-sm font-semibold text-slate-800">Nuevo Equipo</h2>
-        </div>
-        <button @click="createOpen = false"
-                class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
-          <i class="bi bi-x-lg text-sm"></i>
-        </button>
-      </div>
-
-      <!-- Pestañas -->
-      <div class="px-4 py-2 border-b border-slate-100 bg-slate-50/70 flex gap-1 shrink-0">
-        <button type="button" @click="tab = 'equipo'"
-                :class="tab === 'equipo' ? 'bg-[#2F4156] text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'"
-                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
-          <i class="bi bi-pc-display"></i>Equipo
-        </button>
-        <button type="button" @click="tab = 'componentes'"
-                :class="tab === 'componentes' ? 'bg-[#2F4156] text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'"
-                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
-          <i class="bi bi-cpu"></i>Componentes
-          <span x-cloak x-show="componentes.length > 0"
-                class="bg-emerald-500 text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none"
-                x-text="componentes.length"></span>
-        </button>
-        <button type="button" @click="tab = 'perifericos'"
-                :class="tab === 'perifericos' ? 'bg-[#2F4156] text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'"
-                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
-          <i class="bi bi-mouse"></i>Periféricos
-          <span x-cloak x-show="perifericos.length > 0"
-                class="bg-emerald-500 text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none"
-                x-text="perifericos.length"></span>
-        </button>
-        <button type="button" @click="tab = 'software'"
-                :class="tab === 'software' ? 'bg-[#2F4156] text-white shadow-sm' : 'text-slate-500 hover:bg-slate-200'"
-                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
-          <i class="bi bi-disc"></i>Software
-          <span x-cloak x-show="swList.length > 0"
-                class="bg-emerald-500 text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none"
-                x-text="swList.length"></span>
-        </button>
-      </div>
-
-      <!-- Cuerpo scrollable -->
-      <form method="post" action="{% url 'inv:equipo_lista_sede' sede.pk %}" novalidate
-            class="flex flex-col flex-1 overflow-hidden">
-        {% csrf_token %}
-        <div class="flex-1 overflow-y-auto px-6 py-5">
-
-          <!-- TAB: EQUIPO -->
-          <div x-show="tab === 'equipo'">
-            <div class="mb-4">
-              <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
-                Código <span class="text-red-500">*</span>
-              </label>
-              {{ form.codigo }}
-              {% if form.codigo.errors %}<p class="mt-1 text-xs text-red-600">{{ form.codigo.errors|join:", " }}</p>{% endif %}
-            </div>
-            <div class="mb-4">
-              <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
-                Tipo de equipo <span class="text-red-500">*</span>
-              </label>
-              {{ form.tipo }}
-              {% if form.tipo.errors %}<p class="mt-1 text-xs text-red-600">{{ form.tipo.errors|join:", " }}</p>{% endif %}
-            </div>
-            <div class="mb-4">
-              <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
-                Grupo <span class="text-xs font-normal text-slate-400 normal-case tracking-normal">(opcional)</span>
-              </label>
-              {{ form.grupo }}
-              {% if form.grupo.errors %}<p class="mt-1 text-xs text-red-600">{{ form.grupo.errors|join:", " }}</p>{% endif %}
-            </div>
-            <div class="mb-4" x-cloak x-show="subgrupos.length > 0" x-transition>
-              <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
-                Subgrupo <span class="text-xs font-normal text-slate-400 normal-case tracking-normal">(opcional)</span>
-              </label>
-              <select name="subgrupo" class="form-select w-full rounded-lg border border-slate-200 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
-                <option value="">---------</option>
-                <template x-for="sg in subgrupos" :key="sg.id">
-                  <option :value="sg.id" :selected="sg.id == subgrupoValue" x-text="sg.nombre"></option>
-                </template>
-              </select>
-              {% if form.subgrupo.errors %}<p class="mt-1 text-xs text-red-600">{{ form.subgrupo.errors|join:", " }}</p>{% endif %}
-            </div>
-            <div class="mb-4">
-              <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Observaciones</label>
-              {{ form.observaciones }}
-            </div>
-            <div class="flex items-center gap-2">
-              {{ form.activo }}
-              <label for="{{ form.activo.id_for_label }}" class="text-sm text-slate-700 cursor-pointer select-none">Activo</label>
-            </div>
-          </div>
-
-          <!-- TAB: COMPONENTES -->
-          <div x-show="tab === 'componentes'">
-            <div x-cloak x-show="componentes.length > 0" class="mb-4 rounded-lg border border-slate-200 overflow-hidden">
-              <table class="min-w-full text-xs">
-                <thead class="bg-slate-50">
-                  <tr>
-                    <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Tipo</th>
-                    <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Modelo</th>
-                    <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Capacidad</th>
-                    <th class="px-3 py-2 w-8"></th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                  <template x-for="(c, i) in componentes" :key="i">
-                    <tr class="hover:bg-slate-50">
-                      <td class="px-3 py-2" x-text="c.tipo_nombre"></td>
-                      <td class="px-3 py-2 text-slate-500" x-text="c.modelo_nombre || '—'"></td>
-                      <td class="px-3 py-2 text-slate-500" x-text="c.capacidad || '—'"></td>
-                      <td class="px-3 py-2">
-                        <button type="button" @click="componentes.splice(i,1)"
-                                class="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">
-                          <i class="bi bi-x-lg text-xs"></i>
-                        </button>
-                      </td>
-                    </tr>
-                  </template>
-                </tbody>
-              </table>
-            </div>
-            <div class="bg-slate-50 rounded-xl border border-slate-200 p-4">
-              <p class="text-xs font-semibold text-slate-600 mb-3 flex items-center gap-1.5">
-                <i class="bi bi-plus-circle text-[#2F4156]"></i>Agregar componente
-              </p>
-              <div class="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                  <label class="block text-xs text-slate-500 mb-1">Tipo <span class="text-red-500">*</span></label>
-                  <select @change="onCompTipoChange($event.target.value)"
-                          class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
-                    <option value="">---------</option>
-                    <template x-for="t in tc" :key="t.id"><option :value="t.id" x-text="t.nombre"></option></template>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs text-slate-500 mb-1">Modelo <span class="text-red-500">*</span></label>
-                  <select x-model="newComp.modelo" :disabled="newComp.modelos.length === 0"
-                          class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20 disabled:bg-slate-100 disabled:text-slate-400">
-                    <option value="">---------</option>
-                    <template x-for="m in newComp.modelos" :key="m.id">
-                      <option :value="m.id" x-text="m.nombre + (m.capacidad ? ' (' + m.capacidad + ')' : '')"></option>
-                    </template>
-                  </select>
-                </div>
-              </div>
-              <div class="flex items-center justify-between">
-                <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
-                  <input type="checkbox" x-model="newComp.activo" class="rounded">Activo
-                </label>
-                <button type="button" @click="addComp()" :disabled="!newComp.modelo"
-                        :class="newComp.modelo ? 'bg-[#2F4156] text-white hover:bg-[#3a5068]' : 'bg-slate-200 text-slate-400 cursor-not-allowed'"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
-                  <i class="bi bi-plus-lg"></i>Agregar
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- TAB: PERIFÉRICOS -->
-          <div x-show="tab === 'perifericos'">
-            <div x-cloak x-show="perifericos.length > 0" class="mb-4 rounded-lg border border-slate-200 overflow-hidden">
-              <table class="min-w-full text-xs">
-                <thead class="bg-slate-50">
-                  <tr>
-                    <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Tipo</th>
-                    <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Marca</th>
-                    <th class="px-3 py-2 w-8"></th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                  <template x-for="(p, i) in perifericos" :key="i">
-                    <tr class="hover:bg-slate-50">
-                      <td class="px-3 py-2 font-medium" x-text="p.tipo_nombre"></td>
-                      <td class="px-3 py-2 text-slate-500" x-text="p.marca_nombre || '—'"></td>
-                      <td class="px-3 py-2">
-                        <button type="button" @click="perifericos.splice(i,1)"
-                                class="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">
-                          <i class="bi bi-x-lg text-xs"></i>
-                        </button>
-                      </td>
-                    </tr>
-                  </template>
-                </tbody>
-              </table>
-            </div>
-            <div class="bg-slate-50 rounded-xl border border-slate-200 p-4">
-              <p class="text-xs font-semibold text-slate-600 mb-3 flex items-center gap-1.5">
-                <i class="bi bi-plus-circle text-[#2F4156]"></i>Agregar periférico
-              </p>
-              <div class="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                  <label class="block text-xs text-slate-500 mb-1">Tipo <span class="text-red-500">*</span></label>
-                  <select x-model="newPeri.tipo" class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
-                    <option value="">---------</option>
-                    <template x-for="t in tp" :key="t.id"><option :value="t.id" x-text="t.nombre"></option></template>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs text-slate-500 mb-1">Marca <span class="text-xs text-slate-400">(opcional)</span></label>
-                  <select x-model="newPeri.marca" class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
-                    <option value="">---------</option>
-                    <template x-for="m in mr" :key="m.id"><option :value="m.id" x-text="m.nombre"></option></template>
-                  </select>
-                </div>
-              </div>
-              <div class="flex items-center justify-between">
-                <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
-                  <input type="checkbox" x-model="newPeri.activo" class="rounded">Activo
-                </label>
-                <button type="button" @click="addPeri()" :disabled="!newPeri.tipo"
-                        :class="newPeri.tipo ? 'bg-[#2F4156] text-white hover:bg-[#3a5068]' : 'bg-slate-200 text-slate-400 cursor-not-allowed'"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
-                  <i class="bi bi-plus-lg"></i>Agregar
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- TAB: SOFTWARE -->
-          <div x-show="tab === 'software'">
-            <div x-cloak x-show="swList.length > 0" class="mb-4 rounded-lg border border-slate-200 overflow-hidden">
-              <table class="min-w-full text-xs">
-                <thead class="bg-slate-50">
-                  <tr>
-                    <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Software</th>
-                    <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Versión</th>
-                    <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Instalación</th>
-                    <th class="px-3 py-2 w-8"></th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                  <template x-for="(s, i) in swList" :key="i">
-                    <tr class="hover:bg-slate-50">
-                      <td class="px-3 py-2 font-medium" x-text="s.software_nombre"></td>
-                      <td class="px-3 py-2 text-slate-500" x-text="s.version || '—'"></td>
-                      <td class="px-3 py-2 text-slate-500" x-text="s.fecha_instalacion || '—'"></td>
-                      <td class="px-3 py-2">
-                        <button type="button" @click="swList.splice(i,1)"
-                                class="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors">
-                          <i class="bi bi-x-lg text-xs"></i>
-                        </button>
-                      </td>
-                    </tr>
-                  </template>
-                </tbody>
-              </table>
-            </div>
-            <div class="bg-slate-50 rounded-xl border border-slate-200 p-4">
-              <p class="text-xs font-semibold text-slate-600 mb-3 flex items-center gap-1.5">
-                <i class="bi bi-plus-circle text-[#2F4156]"></i>Agregar software
-              </p>
-              <div class="grid grid-cols-2 gap-3 mb-3">
-                <div class="col-span-2">
-                  <label class="block text-xs text-slate-500 mb-1">Software <span class="text-red-500">*</span></label>
-                  <select x-model="newSw.software" class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
-                    <option value="">---------</option>
-                    <template x-for="s in swc" :key="s.id"><option :value="s.id" x-text="s.nombre"></option></template>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-xs text-slate-500 mb-1">Versión</label>
-                  <input x-model="newSw.version" type="text" placeholder="Ej: 2024.1"
-                         class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
-                </div>
-                <div>
-                  <label class="block text-xs text-slate-500 mb-1">F. Instalación</label>
-                  <input x-model="newSw.fecha_instalacion" type="date"
-                         class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
-                </div>
-                <div>
-                  <label class="block text-xs text-slate-500 mb-1">F. Vencimiento</label>
-                  <input x-model="newSw.fecha_vencimiento" type="date"
-                         class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
-                </div>
-                <div>
-                  <label class="block text-xs text-slate-500 mb-1">Observaciones</label>
-                  <input x-model="newSw.observaciones" type="text"
-                         class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
-                </div>
-              </div>
-              <div class="flex justify-end">
-                <button type="button" @click="addSw()" :disabled="!newSw.software"
-                        :class="newSw.software ? 'bg-[#2F4156] text-white hover:bg-[#3a5068]' : 'bg-slate-200 text-slate-400 cursor-not-allowed'"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
-                  <i class="bi bi-plus-lg"></i>Agregar
-                </button>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Inputs ocultos -->
-        <input type="hidden" name="componentes_json" :value="JSON.stringify(componentes)">
-        <input type="hidden" name="perifericos_json" :value="JSON.stringify(perifericos)">
-        <input type="hidden" name="software_json" :value="JSON.stringify(swList)">
-
-        <!-- Pie del modal -->
-        <div class="px-6 py-4 border-t border-slate-100 flex items-center gap-2 shrink-0 bg-white">
-          <button type="submit"
-                  class="inline-flex items-center gap-1.5 px-4 py-2 bg-[#2F4156] text-white text-sm font-medium
-                         rounded-lg hover:bg-[#3a5068] transition-colors shadow-sm">
-            <i class="bi bi-check-lg"></i>Guardar equipo
-          </button>
-          <button type="button" @click="createOpen = false"
-                  class="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 text-slate-600
-                         text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
-            <i class="bi bi-x-lg"></i>Cancelar
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- ── MODAL ELIMINAR ──────────────────────────────────────────────────────── -->
-  <div x-show="deleteOpen"
-       x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-       class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none">
-    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="deleteOpen = false"></div>
-    <div x-show="deleteOpen"
-         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95 translate-y-2"
-         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
-         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 scale-100"
-         x-transition:leave-end="opacity-0 scale-95 translate-y-2"
-         class="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden z-10">
-      <div class="bg-red-50 px-6 py-4 border-b border-red-100 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="w-7 h-7 bg-red-500 rounded-lg flex items-center justify-center shrink-0">
-            <i class="bi bi-trash-fill text-white text-xs"></i>
-          </div>
-          <h2 class="text-sm font-bold text-red-700">Eliminar equipo</h2>
-        </div>
-        <button @click="deleteOpen = false" class="p-1 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-100 transition-colors">
-          <i class="bi bi-x-lg text-sm"></i>
-        </button>
-      </div>
-      <div class="px-6 py-5">
-        <p class="text-sm text-slate-600 mb-1">¿Estás seguro que deseas eliminar:</p>
-        <p class="text-sm font-semibold text-slate-800 mb-4" x-text='"«" + deleteNombre + "»"'></p>
-        <p class="text-xs text-slate-400 mb-5">Esta acción eliminará también sus componentes, periféricos e instalaciones de software.</p>
-        <form method="post" :action="deleteUrl" class="flex items-center gap-2 pt-4 border-t border-slate-100">
-          {% csrf_token %}
-          <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors shadow-sm">
-            <i class="bi bi-trash"></i>Eliminar
-          </button>
-          <button type="button" @click="deleteOpen = false"
-                  class="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
-            <i class="bi bi-x-lg"></i>Cancelar
-          </button>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── BÚSQUEDA ──────────────────────────────────────────────────────────────── -->
-  <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 mb-5">
-    <form method="get" class="flex items-center gap-2">
-      <div class="flex items-center border border-slate-200 bg-slate-50 rounded-lg overflow-hidden flex-1 max-w-sm">
-        <span class="px-3 text-slate-400"><i class="bi bi-search text-sm"></i></span>
-        <input type="text" name="q" value="{{ q }}" placeholder="Buscar por código o tipo…"
-               class="flex-1 py-2 pr-3 text-sm text-slate-700 bg-transparent outline-none placeholder:text-slate-400">
-      </div>
-      <button type="submit" class="px-4 py-2 bg-[#2F4156] text-white text-sm font-medium rounded-lg hover:bg-[#3a5068] transition-colors">Buscar</button>
-      {% if q %}
-      <a href="?" class="px-3 py-2 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg border border-slate-200 text-sm transition-colors flex items-center gap-1">
-        <i class="bi bi-x-lg text-xs"></i>Limpiar
-      </a>
-      {% endif %}
-    </form>
-  </div>
-
-  <!-- ── TABLA ─────────────────────────────────────────────────────────────────── -->
-  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="min-w-full">
-        <thead>
-          <tr class="border-b border-slate-200 bg-slate-50">
-            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-14">#</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Código</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Tipo</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Grupo / Subgrupo</th>
-            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">Estado</th>
-            <th class="px-4 py-3 w-10"></th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          {% for eq in equipos %}
-          <tr class="hover:bg-[#C8D9E6]/20 transition-colors">
-            <td class="px-4 py-3 text-xs text-slate-400">{{ eq.pk }}</td>
-            <td class="px-4 py-3">
-              <a href="{% url 'inv:equipo_detalle' eq.pk %}"
-                 class="text-sm font-semibold text-[#2F4156] hover:underline">{{ eq.codigo }}</a>
-            </td>
-            <td class="px-4 py-3 text-sm text-slate-600">{{ eq.tipo.nombre }}</td>
-            <td class="px-4 py-3 text-sm text-slate-500">
-              {% if eq.subgrupo %}
-                {{ eq.subgrupo.grupo.nombre }}<span class="text-slate-300 mx-1">/</span>{{ eq.subgrupo.nombre }}
-              {% elif eq.grupo %}
-                {{ eq.grupo.nombre }}
-              {% else %}
-                <span class="text-slate-300">—</span>
-              {% endif %}
-            </td>
-            <td class="px-4 py-3">
-              {% if eq.activo %}
-              <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">Activo</span>
-              {% else %}
-              <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-500 rounded-full border border-slate-200">Inactivo</span>
-              {% endif %}
-            </td>
-            <td class="px-4 py-3">
-              <div x-data="{ open: false, top: 0, right: 0 }"
-                   data-nombre="{{ eq.codigo }}"
-                   data-del-url="{% url 'inv:equipo_eliminar' eq.pk %}"
-                   class="flex justify-end">
-                <button @click.stop="const r=$el.getBoundingClientRect(); top=r.bottom+4; right=window.innerWidth-r.right; open=!open"
-                        class="p-1.5 rounded-lg hover:bg-[#C8D9E6]/50 text-[#2F4156]/60 hover:text-[#2F4156] transition-colors">
-                  <i class="bi bi-three-dots-vertical text-sm"></i>
-                </button>
-                <template x-teleport="body">
-                  <div x-show="open"
-                       x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95"
-                       x-transition:enter-end="opacity-100 scale-100" x-transition:leave="transition ease-in duration-75"
-                       x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
-                       @click.outside="open = false"
-                       :style="`position:fixed;top:${top}px;right:${right}px`"
-                       class="w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-[9999] origin-top-right">
-                    <a href="{% url 'inv:equipo_detalle' eq.pk %}"
-                       class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:text-[#2F4156] hover:bg-[#C8D9E6]/25 transition-colors">
-                      <i class="bi bi-eye text-xs text-slate-400"></i>Ver detalle
-                    </a>
-                    <a href="{% url 'inv:equipo_editar' eq.pk %}"
-                       class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:text-[#2F4156] hover:bg-[#C8D9E6]/25 transition-colors">
-                      <i class="bi bi-pencil text-xs text-slate-400"></i>Editar
-                    </a>
-                    <div class="mx-3 my-1 border-t border-slate-100"></div>
-                    <form method="post" action="{% url 'inv:equipo_toggle' eq.pk %}">
-                      {% csrf_token %}
-                      <button type="submit"
-                              class="w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-colors
-                                     {% if eq.activo %}text-amber-600 hover:bg-amber-50{% else %}text-emerald-600 hover:bg-emerald-50{% endif %}">
-                        <i class="bi {% if eq.activo %}bi-toggle-off text-amber-400{% else %}bi-toggle-on text-emerald-400{% endif %} text-sm"></i>
-                        {% if eq.activo %}Desactivar{% else %}Activar{% endif %}
-                      </button>
-                    </form>
-                    <div class="mx-3 my-1 border-t border-slate-100"></div>
-                    <button type="button"
-                            @click="open=false; $dispatch('open-equipo-delete', { nombre: $root.dataset.nombre, url: $root.dataset.delUrl })"
-                            class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">
-                      <i class="bi bi-trash text-xs text-red-400"></i>Eliminar
-                    </button>
-                  </div>
-                </template>
-              </div>
-            </td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="6" class="px-4 py-14 text-center">
-              <i class="bi bi-pc-display text-3xl text-slate-300 block mb-2"></i>
-              <span class="text-sm text-slate-400">
-                No hay equipos{% if q %} para "<strong class="text-slate-600">{{ q }}</strong>"{% endif %}.
-              </span>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
+  <a href="{% url 'inv:equipo_lista' %}"
+     class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
+    <i class="bi bi-arrow-left text-xs"></i>Atrás
+  </a>
 </div>
+
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+  <div class="px-4 py-3 border-b border-slate-100">
+    <p class="text-sm font-semibold text-slate-700">Grupos</p>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="min-w-full">
+      <thead>
+        <tr class="border-b border-slate-200 bg-slate-50">
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Nombre</th>
+          <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">Subgrupos</th>
+          <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide w-28">Equipos</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">Estado</th>
+          <th class="px-4 py-3 w-16"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for grupo in grupos %}
+        <tr class="hover:bg-[#C8D9E6]/20 transition-colors">
+          <td class="px-4 py-3">
+            <p class="text-sm font-semibold text-slate-700">{{ grupo.nombre }}</p>
+          </td>
+          <td class="px-4 py-3 text-center">
+            <span class="text-sm text-slate-500">{{ grupo.num_subgrupos }}</span>
+          </td>
+          <td class="px-4 py-3 text-center">
+            <span class="text-sm text-slate-500">{{ grupo.num_equipos }}</span>
+          </td>
+          <td class="px-4 py-3">
+            {% if grupo.activo %}
+            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">Activo</span>
+            {% else %}
+            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-500 rounded-full border border-slate-200">Inactivo</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-right">
+            <a href="{% url 'inv:equipo_lista_grupo' grupo.pk %}"
+               class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-[#2F4156] bg-[#C8D9E6]/40 hover:bg-[#C8D9E6]/70 rounded-lg transition-colors">
+              Ver <i class="bi bi-chevron-right text-[10px]"></i>
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="px-4 py-14 text-center">
+            <i class="bi bi-diagram-3 text-3xl text-slate-300 block mb-2"></i>
+            <span class="text-sm text-slate-400">Esta sede no tiene grupos activos.</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
 {% endblock %}
