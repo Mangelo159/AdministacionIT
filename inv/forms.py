@@ -123,10 +123,11 @@ class SubgrupoForm(forms.ModelForm):
 class RolForm(forms.ModelForm):
     class Meta:
         model = Rol
-        fields = ['nombre', 'descripcion']
+        fields = ['nombre', 'descripcion', 'es_admin']
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control', 'autofocus': True}),
             'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'es_admin': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 

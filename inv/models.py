@@ -16,6 +16,11 @@ def _limpiar(texto):
 class Rol(models.Model):
     nombre = models.CharField(max_length=100, unique=True)
     descripcion = models.TextField(blank=True)
+    es_admin = models.BooleanField(
+        default=False,
+        verbose_name='Es administrador',
+        help_text='Los usuarios con este rol pueden ver todos los registros sin filtro de sede.',
+    )
     group = models.OneToOneField(Group, on_delete=models.SET_NULL,null=True, blank=True, related_name='rol',)
 
     class Meta:
@@ -399,10 +404,17 @@ class Dispositivo(models.Model):
 # HELPERS DE ACCESO POR SEDE
 # ============================================================
 
+def _es_admin_rol(user):
+    """True si el usuario tiene al menos un Perfil activo con Rol marcado como es_admin."""
+    if not hasattr(user, 'persona'):
+        return False
+    return Perfil.objects.filter(persona=user.persona, activo=True, rol__es_admin=True).exists()
+
+
 def sedes_permitidas(user):
     """Devuelve queryset de Sedes visibles para el usuario.
-    Superusuario/staff → todas. Usuario normal → solo sus sedes asignadas."""
-    if user.is_superuser or user.is_staff:
+    Superusuario/staff/rol-admin → todas. Usuario normal → solo sus sedes asignadas."""
+    if user.is_superuser or user.is_staff or _es_admin_rol(user):
         return Sede.objects.all()
     if hasattr(user, 'persona'):
         return user.persona.sedes.all()

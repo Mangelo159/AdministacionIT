@@ -7,6 +7,7 @@ from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.views import View
 from django.views.generic import ListView, CreateView, UpdateView, DetailView
+from django.db import IntegrityError
 from django.db.models import Prefetch
 from django.urls import reverse_lazy, reverse, NoReverseMatch
 from django.views.decorators.http import require_POST
@@ -17,7 +18,7 @@ from django.db.models import Q, ProtectedError, Case, When, Value, F, IntegerFie
 from .models import (Marca, TipoEquipo, TipoPeriferico, TipoComponente, ModeloComponente,
                      Modulo, Perfil, Institucion, Sede, Grupo, Subgrupo, Rol, Persona, Software,
                      Equipo, Componente, Periferico, InstalacionSoftware, Dispositivo,
-                     sedes_permitidas)
+                     sedes_permitidas, _es_admin_rol)
 from .forms import (MarcaForm, TipoEquipoForm, TipoPerifericoForm, TipoComponenteForm,
                     ModeloComponenteForm,
                     InstitucionForm, SedeForm, GrupoForm, SubgrupoForm,
@@ -26,8 +27,8 @@ from .forms import (MarcaForm, TipoEquipoForm, TipoPerifericoForm, TipoComponent
 
 
 def _sedes_ids(user):
-    """None = sin filtro (superusuario/staff). Lista vacía o de IDs = usuario normal."""
-    if user.is_superuser or user.is_staff:
+    """None = sin filtro (superusuario/staff/rol-admin). Lista vacía o de IDs = usuario normal."""
+    if user.is_superuser or user.is_staff or _es_admin_rol(user):
         return None
     if hasattr(user, 'persona'):
         return list(user.persona.sedes.values_list('id', flat=True))
@@ -70,6 +71,21 @@ def home(request):
 
 
 # ── Mixins base ───────────────────────────────────────────────────────────────
+
+class _ModalForm:
+    """Para vistas cuyo formulario vive en un modal dentro de la lista.
+    En vez de ir a catalogo_form.html al fallar, redirige al listado con el error."""
+    def form_invalid(self, form):
+        partes = []
+        for campo, errores in form.errors.items():
+            if campo == '__all__':
+                partes.extend(errores)
+            else:
+                label = form.fields[campo].label or campo
+                partes.append(f'{label}: {", ".join(errores)}')
+        messages.error(self.request, 'No se pudo guardar. ' + ' | '.join(partes))
+        return redirect(self.success_url)
+
 
 class _CatalogoList(LoginRequiredMixin, ListView):
     context_object_name = 'objetos'
@@ -360,13 +376,13 @@ class SedeListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class SedeCreateView(_CatalogoForm, CreateView):
+class SedeCreateView(_ModalForm, _CatalogoForm, CreateView):
     model = Sede
     form_class = SedeForm
     success_url = reverse_lazy('inv:sede_lista')
 
 
-class SedeUpdateView(_CatalogoForm, UpdateView):
+class SedeUpdateView(_ModalForm, _CatalogoForm, UpdateView):
     model = Sede
     form_class = SedeForm
     success_url = reverse_lazy('inv:sede_lista')
@@ -434,13 +450,13 @@ class GrupoListView(LoginRequiredMixin, View):
         })
 
 
-class GrupoCreateView(_CatalogoForm, CreateView):
+class GrupoCreateView(_ModalForm, _CatalogoForm, CreateView):
     model = Grupo
     form_class = GrupoForm
     success_url = reverse_lazy('inv:grupo_lista')
 
 
-class GrupoUpdateView(_CatalogoForm, UpdateView):
+class GrupoUpdateView(_ModalForm, _CatalogoForm, UpdateView):
     model = Grupo
     form_class = GrupoForm
     success_url = reverse_lazy('inv:grupo_lista')
@@ -469,13 +485,13 @@ def grupo_delete(request, pk):
     return redirect('inv:grupo_lista')
 
 
-class SubgrupoCreateView(_CatalogoForm, CreateView):
+class SubgrupoCreateView(_ModalForm, _CatalogoForm, CreateView):
     model = Subgrupo
     form_class = SubgrupoForm
     success_url = reverse_lazy('inv:grupo_lista')
 
 
-class SubgrupoUpdateView(_CatalogoForm, UpdateView):
+class SubgrupoUpdateView(_ModalForm, _CatalogoForm, UpdateView):
     model = Subgrupo
     form_class = SubgrupoForm
     success_url = reverse_lazy('inv:grupo_lista')
@@ -581,13 +597,13 @@ class RolListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class RolCreateView(_CatalogoForm, CreateView):
+class RolCreateView(_ModalForm, _CatalogoForm, CreateView):
     model = Rol
     form_class = RolForm
     success_url = reverse_lazy('inv:rol_lista')
 
 
-class RolUpdateView(_CatalogoForm, UpdateView):
+class RolUpdateView(_ModalForm, _CatalogoForm, UpdateView):
     model = Rol
     form_class = RolForm
     success_url = reverse_lazy('inv:rol_lista')
@@ -643,7 +659,7 @@ class PersonaListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class PersonaCreateView(_CatalogoForm, CreateView):
+class PersonaCreateView(_ModalForm, _CatalogoForm, CreateView):
     model = Persona
     form_class = PersonaForm
     success_url = reverse_lazy('inv:persona_lista')
@@ -654,7 +670,7 @@ class PersonaCreateView(_CatalogoForm, CreateView):
         return response
 
 
-class PersonaUpdateView(_CatalogoForm, UpdateView):
+class PersonaUpdateView(_ModalForm, _CatalogoForm, UpdateView):
     model = Persona
     form_class = PersonaForm
     success_url = reverse_lazy('inv:persona_lista')
@@ -730,13 +746,13 @@ class PerfilListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class PerfilCreateView(_CatalogoForm, CreateView):
+class PerfilCreateView(_ModalForm, _CatalogoForm, CreateView):
     model = Perfil
     form_class = PerfilForm
     success_url = reverse_lazy('inv:perfil_lista')
 
 
-class PerfilUpdateView(_CatalogoForm, UpdateView):
+class PerfilUpdateView(_ModalForm, _CatalogoForm, UpdateView):
     model = Perfil
     form_class = PerfilForm
     success_url = reverse_lazy('inv:perfil_lista')
@@ -788,13 +804,13 @@ class ModuloListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class ModuloCreateView(_CatalogoForm, CreateView):
+class ModuloCreateView(_ModalForm, _CatalogoForm, CreateView):
     model = Modulo
     form_class = ModuloForm
     success_url = reverse_lazy('inv:modulo_lista')
 
 
-class ModuloUpdateView(_CatalogoForm, UpdateView):
+class ModuloUpdateView(_ModalForm, _CatalogoForm, UpdateView):
     model = Modulo
     form_class = ModuloForm
     success_url = reverse_lazy('inv:modulo_lista')
@@ -1224,13 +1240,13 @@ class ModeloComponenteListView(LoginRequiredMixin, View):
         })
 
 
-class ModeloComponenteCreateView(_CatalogoForm, CreateView):
+class ModeloComponenteCreateView(_ModalForm, _CatalogoForm, CreateView):
     model = ModeloComponente
     form_class = ModeloComponenteForm
     success_url = reverse_lazy('inv:modelo_componente_lista')
 
 
-class ModeloComponenteUpdateView(_CatalogoForm, UpdateView):
+class ModeloComponenteUpdateView(_ModalForm, _CatalogoForm, UpdateView):
     model = ModeloComponente
     form_class = ModeloComponenteForm
     success_url = reverse_lazy('inv:modelo_componente_lista')
@@ -1440,8 +1456,11 @@ def instalacion_create(request, equipo_pk):
     if form.is_valid():
         inst = form.save(commit=False)
         inst.equipo = equipo
-        inst.save()
-        messages.success(request, 'Software agregado.')
+        try:
+            inst.save()
+            messages.success(request, 'Software agregado.')
+        except IntegrityError:
+            messages.error(request, 'Este software ya está registrado en el equipo.')
     else:
         messages.error(request, 'Error al guardar la instalación. Verifica los campos.')
     return redirect('inv:equipo_detalle', pk=equipo_pk)
