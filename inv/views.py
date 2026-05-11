@@ -989,6 +989,10 @@ class EquipoGrupoView(LoginRequiredMixin, View):
             'tipos_equipo': TipoEquipo.objects.filter(activo=True).order_by('nombre'),
             'tipos_periferico': TipoPeriferico.objects.filter(activo=True).order_by('nombre'),
             'marcas': Marca.objects.filter(activo=True).order_by('nombre'),
+            'tc_json': _catalogo_cached('tc_json', lambda: TipoComponente.objects.filter(activo=True).values('id', 'nombre')),
+            'tp_json': _catalogo_cached('tp_json', lambda: TipoPeriferico.objects.filter(activo=True).values('id', 'nombre')),
+            'marcas_json': _catalogo_cached('marcas_json', lambda: Marca.objects.filter(activo=True).values('id', 'nombre')),
+            'sw_json': _catalogo_cached('sw_json', lambda: Software.objects.filter(activo=True).values('id', 'nombre')),
         })
 
 
