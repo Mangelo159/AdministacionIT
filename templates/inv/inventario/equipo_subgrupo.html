@@ -13,16 +13,19 @@ document.addEventListener('alpine:init', () => {
     /* ── Crear equipo ──────────────────────────────────────── */
     createOpen: modalOpen,
     tab: 'equipo',
+    errCodigo: false,
+    errTipo: false,
 
-    /* ── Componentes ───────────────────────────────────────── */
+    /* ── Componentes (crear) ───────────────────────────────── */
     tc: [], tp: [], mr: [], swc: [],
     componentes: [],
     newComp: { tipo: '', modelos: [], modelo: '', activo: true },
     async onCompTipoChange(val) {
       this.newComp.tipo = val; this.newComp.modelo = '';
-      if (!val) { this.newComp.modelos = []; return; }
+      if (!val) { this.newComp.modelos = []; window._s2Modelo(this.$refs.cModeloSel, [], v => this.newComp.modelo = v); return; }
       const d = await (await fetch(`${window._MCURL}?tipo_id=${val}`)).json();
       this.newComp.modelos = d.modelos;
+      window._s2Modelo(this.$refs.cModeloSel, d.modelos, v => this.newComp.modelo = v);
     },
     addComp() {
       if (!this.newComp.modelo) return;
@@ -32,7 +35,7 @@ document.addEventListener('alpine:init', () => {
       this.newComp = { tipo: '', modelos: [], modelo: '', activo: true };
     },
 
-    /* ── Periféricos ───────────────────────────────────────── */
+    /* ── Periféricos (crear) ───────────────────────────────── */
     perifericos: [],
     newPeri: { tipo: '', marca: '', activo: true },
     addPeri() {
@@ -43,7 +46,7 @@ document.addEventListener('alpine:init', () => {
       this.newPeri = { tipo: '', marca: '', activo: true };
     },
 
-    /* ── Software ──────────────────────────────────────────── */
+    /* ── Software (crear) ──────────────────────────────────── */
     swList: [],
     newSw: { software: '', version: '', fecha_instalacion: '', fecha_vencimiento: '', observaciones: '' },
     addSw() {
@@ -53,10 +56,88 @@ document.addEventListener('alpine:init', () => {
       this.newSw = { software: '', version: '', fecha_instalacion: '', fecha_vencimiento: '', observaciones: '' };
     },
 
-    /* ── Modal editar equipo ───────────────────────────────── */
-    editEquipoOpen: false,
-    editUrl: '',
-    editCodigo: '', editTipoId: '', editIp: '', editObs: '', editActivo: true,
+    /* ── Validación y envío formulario CREAR ─────────────────── */
+    submitEquipo(event) {
+      const form = event.target;
+      this.errCodigo = !form.querySelector('[name="codigo"]').value.trim();
+      this.errTipo   = !form.querySelector('[name="tipo"]').value;
+      if (this.errCodigo || this.errTipo) { this.tab = 'equipo'; event.preventDefault(); return; }
+      form.querySelector('[name="componentes_json"]').value = JSON.stringify(this.componentes);
+      form.querySelector('[name="perifericos_json"]').value = JSON.stringify(this.perifericos);
+      form.querySelector('[name="software_json"]').value    = JSON.stringify(this.swList);
+    },
+
+    /* ── Modal editar equipo COMPLETO ─────────────────────── */
+    editFullOpen: false,
+    editFullTab: 'equipo',
+    editFullUrl: '',
+    editFullCodigo: '', editFullTipoId: '', editFullIp: '', editFullObs: '', editFullActivo: true,
+    editFullComponentes: [],
+    editFullPerifericos: [],
+    editFullSwList: [],
+    newEditComp: { tipo: '', modelos: [], modelo: '', activo: true },
+    newEditPeri: { tipo: '', marca: '', activo: true },
+    newEditSw: { software: '', version: '', fecha_instalacion: '', fecha_vencimiento: '', observaciones: '' },
+    errEditCodigo: false,
+    errEditTipo: false,
+    eqData: {},
+
+    async onEditCompTipoChange(val) {
+      this.newEditComp.tipo = val; this.newEditComp.modelo = '';
+      if (!val) { this.newEditComp.modelos = []; window._s2Modelo(this.$refs.eModeloSel, [], v => this.newEditComp.modelo = v); return; }
+      const d = await (await fetch(`${window._MCURL}?tipo_id=${val}`)).json();
+      this.newEditComp.modelos = d.modelos;
+      window._s2Modelo(this.$refs.eModeloSel, d.modelos, v => this.newEditComp.modelo = v);
+    },
+    addEditComp() {
+      if (!this.newEditComp.modelo) return;
+      const t = this.tc.find(x => x.id == this.newEditComp.tipo);
+      const m = this.newEditComp.modelos.find(x => x.id == this.newEditComp.modelo);
+      this.editFullComponentes.push({ modelo: this.newEditComp.modelo, tipo_nombre: t ? t.nombre : '', modelo_nombre: m ? m.nombre : '', capacidad: m ? m.capacidad : '', activo: this.newEditComp.activo });
+      this.newEditComp = { tipo: '', modelos: [], modelo: '', activo: true };
+    },
+    addEditPeri() {
+      if (!this.newEditPeri.tipo) return;
+      const t = this.tp.find(x => x.id == this.newEditPeri.tipo);
+      const m = this.mr.find(x => x.id == this.newEditPeri.marca);
+      this.editFullPerifericos.push({ ...this.newEditPeri, tipo_nombre: t ? t.nombre : '', marca_nombre: m ? m.nombre : '' });
+      this.newEditPeri = { tipo: '', marca: '', activo: true };
+    },
+    addEditSw() {
+      if (!this.newEditSw.software) return;
+      const s = this.swc.find(x => x.id == this.newEditSw.software);
+      this.editFullSwList.push({ ...this.newEditSw, software_nombre: s ? s.nombre : '' });
+      this.newEditSw = { software: '', version: '', fecha_instalacion: '', fecha_vencimiento: '', observaciones: '' };
+    },
+    openEditFull(id, url) {
+      const d = this.eqData[id];
+      if (!d) return;
+      this.editFullCodigo  = d.codigo;
+      this.editFullTipoId  = String(d.tipo_id);
+      this.editFullIp      = d.ip;
+      this.editFullObs     = d.obs;
+      this.editFullActivo  = d.activo;
+      this.editFullComponentes = d.comps.map(c => ({ ...c, modelo: String(c.modelo) }));
+      this.editFullPerifericos = d.peri.map(p => ({ ...p, tipo: String(p.tipo), marca: p.marca ? String(p.marca) : '' }));
+      this.editFullSwList      = d.sw.map(s => ({ ...s, software: String(s.software) }));
+      this.editFullUrl = url;
+      this.editFullTab = 'equipo';
+      this.errEditCodigo = false;
+      this.errEditTipo   = false;
+      this.newEditComp = { tipo: '', modelos: [], modelo: '', activo: true };
+      this.newEditPeri = { tipo: '', marca: '', activo: true };
+      this.newEditSw   = { software: '', version: '', fecha_instalacion: '', fecha_vencimiento: '', observaciones: '' };
+      this.editFullOpen = true;
+    },
+    submitEditEquipo(event) {
+      const form = event.target;
+      this.errEditCodigo = !form.querySelector('[name="codigo"]').value.trim();
+      this.errEditTipo   = !form.querySelector('[name="tipo"]').value;
+      if (this.errEditCodigo || this.errEditTipo) { this.editFullTab = 'equipo'; event.preventDefault(); return; }
+      form.querySelector('[name="componentes_json"]').value = JSON.stringify(this.editFullComponentes);
+      form.querySelector('[name="perifericos_json"]').value = JSON.stringify(this.editFullPerifericos);
+      form.querySelector('[name="software_json"]').value    = JSON.stringify(this.editFullSwList);
+    },
 
     /* ── Modal eliminar equipo ─────────────────────────────── */
     deleteOpen: false, deleteNombre: '', deleteUrl: '',
@@ -73,10 +154,14 @@ document.addEventListener('alpine:init', () => {
     delDispOpen: false, delDispNombre: '', delDispUrl: '',
 
     /* ── Inicialización ────────────────────────────────────── */
-    init() {
+    async init() {
       const g = id => JSON.parse(document.getElementById(id).textContent);
       this.tc = g('tc-data'); this.tp = g('tp-data'); this.mr = g('mr-data'); this.swc = g('sw-data');
       this.componentes = g('init-comp'); this.perifericos = g('init-peri'); this.swList = g('init-sw');
+      this.eqData = g('eq-data');
+      await this.$nextTick();
+      window._s2Modelo(this.$refs.cPeriMarcaSel, this.mr, v => this.newPeri.marca = v);
+      window._s2Modelo(this.$refs.ePeriMarcaSel, this.mr, v => this.newEditPeri.marca = v);
     },
   }));
 });
@@ -91,6 +176,7 @@ document.addEventListener('alpine:init', () => {
 {{ init_comp|json_script:"init-comp" }}
 {{ init_peri|json_script:"init-peri" }}
 {{ init_sw|json_script:"init-sw" }}
+{{ equipos_data|json_script:"eq-data" }}
 
 <div x-data='sgEquipos({{ modal_open|yesno:"true,false" }})'>
 
@@ -156,6 +242,7 @@ document.addEventListener('alpine:init', () => {
                 :class="tab==='equipo'?'bg-[#2F4156] text-white shadow-sm':'text-slate-500 hover:bg-slate-200'"
                 class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all mb-2">
           <i class="bi bi-pc-display"></i>Equipo
+          <span x-cloak x-show="errCodigo || errTipo" class="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none">!</span>
         </button>
         <button type="button" @click="tab='componentes'"
                 :class="tab==='componentes'?'bg-[#2F4156] text-white shadow-sm':'text-slate-500 hover:bg-slate-200'"
@@ -179,7 +266,7 @@ document.addEventListener('alpine:init', () => {
 
       <form method="post" action="{% url 'inv:equipo_lista_subgrupo' subgrupo.pk %}" novalidate
             class="flex flex-col flex-1 overflow-hidden"
-            @submit="$refs.compJson.value=JSON.stringify(componentes); $refs.periJson.value=JSON.stringify(perifericos); $refs.swJson.value=JSON.stringify(swList)">
+            @submit="submitEquipo($event)">
         {% csrf_token %}
         <input type="hidden" name="grupo" value="{{ subgrupo.grupo_id }}">
         <input type="hidden" name="subgrupo" value="{{ subgrupo.pk }}">
@@ -191,12 +278,14 @@ document.addEventListener('alpine:init', () => {
             <div class="mb-4">
               <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Código <span class="text-red-500">*</span></label>
               {{ form.codigo }}
-              {% if form.codigo.errors %}<p class="mt-1 text-xs text-red-600">{{ form.codigo.errors|join:", " }}</p>{% endif %}
+              {% if form.codigo.errors %}<p class="mt-1 text-xs text-red-600">{{ form.codigo.errors|join:", " }}</p>
+              {% else %}<p x-show="errCodigo" x-cloak class="mt-1 text-xs text-red-600">El código es obligatorio.</p>{% endif %}
             </div>
             <div class="mb-4">
               <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Tipo de equipo <span class="text-red-500">*</span></label>
               {{ form.tipo }}
-              {% if form.tipo.errors %}<p class="mt-1 text-xs text-red-600">{{ form.tipo.errors|join:", " }}</p>{% endif %}
+              {% if form.tipo.errors %}<p class="mt-1 text-xs text-red-600">{{ form.tipo.errors|join:", " }}</p>
+              {% else %}<p x-show="errTipo" x-cloak class="mt-1 text-xs text-red-600">Selecciona un tipo de equipo.</p>{% endif %}
             </div>
             <div class="mb-4">
               <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Dirección IP <span class="text-xs font-normal text-slate-400 normal-case">(opcional)</span></label>
@@ -246,10 +335,7 @@ document.addEventListener('alpine:init', () => {
                 </div>
                 <div>
                   <label class="block text-xs text-slate-500 mb-1">Modelo <span class="text-red-500">*</span></label>
-                  <select x-model="newComp.modelo" :disabled="newComp.modelos.length===0" class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20 disabled:bg-slate-100 disabled:text-slate-400">
-                    <option value="">---------</option>
-                    <template x-for="m in newComp.modelos" :key="m.id"><option :value="m.id" x-text="m.nombre+(m.capacidad?' ('+m.capacidad+')':'')"></option></template>
-                  </select>
+                  <select x-ref="cModeloSel" class="w-full"></select>
                 </div>
               </div>
               <div class="flex items-center justify-between">
@@ -291,10 +377,7 @@ document.addEventListener('alpine:init', () => {
                 </div>
                 <div>
                   <label class="block text-xs text-slate-500 mb-1">Marca <span class="text-xs text-slate-400">(opcional)</span></label>
-                  <select x-model="newPeri.marca" class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
-                    <option value="">---------</option>
-                    <template x-for="m in mr" :key="m.id"><option :value="m.id" x-text="m.nombre"></option></template>
-                  </select>
+                  <select x-ref="cPeriMarcaSel" class="w-full"></select>
                 </div>
               </div>
               <div class="flex items-center justify-between">
@@ -354,9 +437,9 @@ document.addEventListener('alpine:init', () => {
         </div>
 
         <!-- Hidden inputs -->
-        <input type="hidden" name="componentes_json" x-ref="compJson">
-        <input type="hidden" name="perifericos_json" x-ref="periJson">
-        <input type="hidden" name="software_json"    x-ref="swJson">
+        <input type="hidden" name="componentes_json">
+        <input type="hidden" name="perifericos_json">
+        <input type="hidden" name="software_json">
 
         <div class="px-6 py-4 border-t border-slate-100 flex items-center gap-2 shrink-0 bg-white">
           <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 bg-[#2F4156] text-white text-sm font-medium rounded-lg hover:bg-[#3a5068] transition-colors shadow-sm">
@@ -370,62 +453,257 @@ document.addEventListener('alpine:init', () => {
     </div>
   </div>
 
-  <!-- MODAL: EDITAR EQUIPO -->
-  <div x-show="editEquipoOpen"
+  <!-- ══════════════════════════════════════════════════════════════════════════
+       MODAL: EDITAR EQUIPO (completo, con pestañas)
+  ══════════════════════════════════════════════════════════════════════════ -->
+  <div x-show="editFullOpen"
        x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
        x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150"
        x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
        class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none">
-    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="editEquipoOpen = false"></div>
-    <div x-show="editEquipoOpen"
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="editFullOpen = false"></div>
+
+    <div x-show="editFullOpen"
          x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95 translate-y-2"
          x-transition:enter-end="opacity-100 scale-100 translate-y-0"
          x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 scale-100"
          x-transition:leave-end="opacity-0 scale-95 translate-y-2"
-         class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden z-10">
-      <div class="bg-[#C8D9E6] px-6 py-4 border-b border-[#b0cad9] flex items-center justify-between">
+         class="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl flex flex-col z-10"
+         style="max-height:90vh">
+
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
         <div class="flex items-center gap-2">
-          <div class="w-7 h-7 bg-[#2F4156] rounded-lg flex items-center justify-center shrink-0">
-            <i class="bi bi-pencil-square text-[#C8D9E6] text-xs"></i>
+          <div class="w-7 h-7 bg-[#2F4156]/10 rounded-lg flex items-center justify-center shrink-0">
+            <i class="bi bi-pencil-square text-[#2F4156] text-xs"></i>
           </div>
-          <h2 class="text-sm font-bold text-[#2F4156]">Editar Equipo</h2>
+          <div>
+            <h2 class="text-sm font-semibold text-slate-800">Editar Equipo</h2>
+            <p class="text-xs text-slate-400" x-text="editFullCodigo"></p>
+          </div>
         </div>
-        <button @click="editEquipoOpen = false" class="p-1 rounded-lg text-[#2F4156]/50 hover:text-[#2F4156] hover:bg-[#2F4156]/10 transition-colors"><i class="bi bi-x-lg text-sm"></i></button>
+        <button @click="editFullOpen = false" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+          <i class="bi bi-x-lg text-sm"></i>
+        </button>
       </div>
-      <form method="post" :action="editUrl" class="px-6 py-5">
+
+      <!-- Tab bar -->
+      <div class="flex gap-1 px-4 pt-3 pb-0 border-b border-slate-100 shrink-0">
+        <button type="button" @click="editFullTab='equipo'"
+                :class="editFullTab==='equipo'?'bg-[#2F4156] text-white shadow-sm':'text-slate-500 hover:bg-slate-200'"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all mb-2">
+          <i class="bi bi-pc-display"></i>Equipo
+          <span x-cloak x-show="errEditCodigo || errEditTipo" class="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none">!</span>
+        </button>
+        <button type="button" @click="editFullTab='componentes'"
+                :class="editFullTab==='componentes'?'bg-[#2F4156] text-white shadow-sm':'text-slate-500 hover:bg-slate-200'"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all mb-2">
+          <i class="bi bi-cpu"></i>Componentes
+          <span x-cloak x-show="editFullComponentes.length>0" class="bg-emerald-500 text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none" x-text="editFullComponentes.length"></span>
+        </button>
+        <button type="button" @click="editFullTab='perifericos'"
+                :class="editFullTab==='perifericos'?'bg-[#2F4156] text-white shadow-sm':'text-slate-500 hover:bg-slate-200'"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all mb-2">
+          <i class="bi bi-mouse"></i>Periféricos
+          <span x-cloak x-show="editFullPerifericos.length>0" class="bg-emerald-500 text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none" x-text="editFullPerifericos.length"></span>
+        </button>
+        <button type="button" @click="editFullTab='software'"
+                :class="editFullTab==='software'?'bg-[#2F4156] text-white shadow-sm':'text-slate-500 hover:bg-slate-200'"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all mb-2">
+          <i class="bi bi-disc"></i>Software
+          <span x-cloak x-show="editFullSwList.length>0" class="bg-emerald-500 text-white text-[10px] px-1.5 py-0.5 rounded-full leading-none" x-text="editFullSwList.length"></span>
+        </button>
+      </div>
+
+      <form method="post" :action="editFullUrl" novalidate
+            class="flex flex-col flex-1 overflow-hidden"
+            @submit="submitEditEquipo($event)">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ request.get_full_path }}">
         <input type="hidden" name="grupo" value="{{ subgrupo.grupo_id }}">
         <input type="hidden" name="subgrupo" value="{{ subgrupo.pk }}">
-        <div class="mb-4">
-          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Código <span class="text-red-500">*</span></label>
-          <input type="text" name="codigo" x-model="editCodigo" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent">
+
+        <div class="flex-1 overflow-y-auto px-6 py-5">
+
+          <!-- TAB: EQUIPO -->
+          <div x-show="editFullTab==='equipo'">
+            <div class="mb-4">
+              <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Código <span class="text-red-500">*</span></label>
+              <input type="text" name="codigo" x-model="editFullCodigo"
+                     class="form-control w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent">
+              <p x-show="errEditCodigo" x-cloak class="mt-1 text-xs text-red-600">El código es obligatorio.</p>
+            </div>
+            <div class="mb-4">
+              <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Tipo de equipo <span class="text-red-500">*</span></label>
+              <select name="tipo" x-model="editFullTipoId"
+                      class="form-select w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent">
+                <option value="">— Seleccionar —</option>
+                {% for te in te_json %}
+                <option value="{{ te.id }}">{{ te.nombre }}</option>
+                {% endfor %}
+              </select>
+              <p x-show="errEditTipo" x-cloak class="mt-1 text-xs text-red-600">Selecciona un tipo de equipo.</p>
+            </div>
+            <div class="mb-4">
+              <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Dirección IP <span class="text-xs font-normal text-slate-400 normal-case">(opcional)</span></label>
+              <input type="text" name="ip" x-model="editFullIp" placeholder="Ej: 192.168.1.100"
+                     class="form-control w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent placeholder:text-slate-400">
+            </div>
+            <div class="mb-4">
+              <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Observaciones</label>
+              <textarea name="observaciones" x-model="editFullObs" rows="2"
+                        class="form-control w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent resize-none"></textarea>
+            </div>
+            <div class="flex items-center gap-2">
+              <input type="checkbox" name="activo" id="ef_activo" x-model="editFullActivo" class="w-4 h-4 rounded accent-[#2F4156] cursor-pointer">
+              <label for="ef_activo" class="text-sm text-slate-700 cursor-pointer select-none">Activo</label>
+            </div>
+          </div>
+
+          <!-- TAB: COMPONENTES -->
+          <div x-show="editFullTab==='componentes'">
+            <div x-cloak x-show="editFullComponentes.length>0" class="mb-4 rounded-lg border border-slate-200 overflow-hidden">
+              <table class="min-w-full text-xs">
+                <thead class="bg-slate-50"><tr>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Tipo</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Modelo</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Capacidad</th>
+                  <th class="px-3 py-2 w-8"></th>
+                </tr></thead>
+                <tbody class="divide-y divide-slate-100">
+                  <template x-for="(c,i) in editFullComponentes" :key="i">
+                    <tr class="hover:bg-slate-50">
+                      <td class="px-3 py-2" x-text="c.tipo_nombre"></td>
+                      <td class="px-3 py-2 text-slate-500" x-text="c.modelo_nombre||'—'"></td>
+                      <td class="px-3 py-2 text-slate-500" x-text="c.capacidad||'—'"></td>
+                      <td class="px-3 py-2"><button type="button" @click="editFullComponentes.splice(i,1)" class="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"><i class="bi bi-x-lg text-xs"></i></button></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <div class="bg-slate-50 rounded-xl border border-slate-200 p-4">
+              <p class="text-xs font-semibold text-slate-600 mb-3 flex items-center gap-1.5"><i class="bi bi-plus-circle text-[#2F4156]"></i>Agregar componente</p>
+              <div class="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label class="block text-xs text-slate-500 mb-1">Tipo <span class="text-red-500">*</span></label>
+                  <select @change="onEditCompTipoChange($event.target.value)" class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
+                    <option value="">---------</option>
+                    <template x-for="t in tc" :key="t.id"><option :value="t.id" x-text="t.nombre"></option></template>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-slate-500 mb-1">Modelo <span class="text-red-500">*</span></label>
+                  <select x-ref="eModeloSel" class="w-full"></select>
+                </div>
+              </div>
+              <div class="flex items-center justify-between">
+                <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer"><input type="checkbox" x-model="newEditComp.activo" class="rounded">Activo</label>
+                <button type="button" @click="addEditComp()" :disabled="!newEditComp.modelo" :class="newEditComp.modelo?'bg-[#2F4156] text-white hover:bg-[#3a5068]':'bg-slate-200 text-slate-400 cursor-not-allowed'" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"><i class="bi bi-plus-lg"></i>Agregar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB: PERIFÉRICOS -->
+          <div x-show="editFullTab==='perifericos'">
+            <div x-cloak x-show="editFullPerifericos.length>0" class="mb-4 rounded-lg border border-slate-200 overflow-hidden">
+              <table class="min-w-full text-xs">
+                <thead class="bg-slate-50"><tr>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Tipo</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Marca</th>
+                  <th class="px-3 py-2 w-8"></th>
+                </tr></thead>
+                <tbody class="divide-y divide-slate-100">
+                  <template x-for="(p,i) in editFullPerifericos" :key="i">
+                    <tr class="hover:bg-slate-50">
+                      <td class="px-3 py-2 font-medium" x-text="p.tipo_nombre"></td>
+                      <td class="px-3 py-2 text-slate-500" x-text="p.marca_nombre||'—'"></td>
+                      <td class="px-3 py-2"><button type="button" @click="editFullPerifericos.splice(i,1)" class="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"><i class="bi bi-x-lg text-xs"></i></button></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <div class="bg-slate-50 rounded-xl border border-slate-200 p-4">
+              <p class="text-xs font-semibold text-slate-600 mb-3 flex items-center gap-1.5"><i class="bi bi-plus-circle text-[#2F4156]"></i>Agregar periférico</p>
+              <div class="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label class="block text-xs text-slate-500 mb-1">Tipo <span class="text-red-500">*</span></label>
+                  <select x-model="newEditPeri.tipo" class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
+                    <option value="">---------</option>
+                    <template x-for="t in tp" :key="t.id"><option :value="t.id" x-text="t.nombre"></option></template>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-slate-500 mb-1">Marca <span class="text-xs text-slate-400">(opcional)</span></label>
+                  <select x-ref="ePeriMarcaSel" class="w-full"></select>
+                </div>
+              </div>
+              <div class="flex items-center justify-between">
+                <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer"><input type="checkbox" x-model="newEditPeri.activo" class="rounded">Activo</label>
+                <button type="button" @click="addEditPeri()" :disabled="!newEditPeri.tipo" :class="newEditPeri.tipo?'bg-[#2F4156] text-white hover:bg-[#3a5068]':'bg-slate-200 text-slate-400 cursor-not-allowed'" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"><i class="bi bi-plus-lg"></i>Agregar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB: SOFTWARE -->
+          <div x-show="editFullTab==='software'">
+            <div x-cloak x-show="editFullSwList.length>0" class="mb-4 rounded-lg border border-slate-200 overflow-hidden">
+              <table class="min-w-full text-xs">
+                <thead class="bg-slate-50"><tr>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Software</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Versión</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Instalación</th>
+                  <th class="px-3 py-2 w-8"></th>
+                </tr></thead>
+                <tbody class="divide-y divide-slate-100">
+                  <template x-for="(s,i) in editFullSwList" :key="i">
+                    <tr class="hover:bg-slate-50">
+                      <td class="px-3 py-2 font-medium" x-text="s.software_nombre"></td>
+                      <td class="px-3 py-2 text-slate-500" x-text="s.version||'—'"></td>
+                      <td class="px-3 py-2 text-slate-500" x-text="s.fecha_instalacion||'—'"></td>
+                      <td class="px-3 py-2"><button type="button" @click="editFullSwList.splice(i,1)" class="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"><i class="bi bi-x-lg text-xs"></i></button></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <div class="bg-slate-50 rounded-xl border border-slate-200 p-4">
+              <p class="text-xs font-semibold text-slate-600 mb-3 flex items-center gap-1.5"><i class="bi bi-plus-circle text-[#2F4156]"></i>Agregar software</p>
+              <div class="grid grid-cols-2 gap-3 mb-3">
+                <div class="col-span-2">
+                  <label class="block text-xs text-slate-500 mb-1">Software <span class="text-red-500">*</span></label>
+                  <select x-model="newEditSw.software" class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
+                    <option value="">---------</option>
+                    <template x-for="s in swc" :key="s.id"><option :value="s.id" x-text="s.nombre"></option></template>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-slate-500 mb-1">Versión</label>
+                  <input x-model="newEditSw.version" type="text" placeholder="Ej: 2024.1" class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
+                </div>
+                <div>
+                  <label class="block text-xs text-slate-500 mb-1">F. Instalación</label>
+                  <input x-model="newEditSw.fecha_instalacion" type="date" class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
+                </div>
+              </div>
+              <div class="flex justify-end">
+                <button type="button" @click="addEditSw()" :disabled="!newEditSw.software" :class="newEditSw.software?'bg-[#2F4156] text-white hover:bg-[#3a5068]':'bg-slate-200 text-slate-400 cursor-not-allowed'" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"><i class="bi bi-plus-lg"></i>Agregar</button>
+              </div>
+            </div>
+          </div>
+
         </div>
-        <div class="mb-4">
-          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Tipo <span class="text-red-500">*</span></label>
-          <select name="tipo" x-model="editTipoId" required class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent">
-            {% for te in te_json %}
-            <option value="{{ te.id }}">{{ te.nombre }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="mb-4">
-          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Dirección IP</label>
-          <input type="text" name="ip" x-model="editIp" placeholder="Ej: 192.168.1.100" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent placeholder:text-slate-400">
-        </div>
-        <div class="mb-4">
-          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Observaciones</label>
-          <textarea name="observaciones" x-model="editObs" rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent resize-none"></textarea>
-        </div>
-        <div class="mb-5 flex items-center gap-2">
-          <input type="checkbox" name="activo" id="edit_eq_activo" x-model="editActivo" class="w-4 h-4 rounded accent-[#2F4156] cursor-pointer">
-          <label for="edit_eq_activo" class="text-sm text-slate-700 cursor-pointer select-none">Activo</label>
-        </div>
-        <div class="flex items-center gap-2 pt-4 border-t border-slate-100">
+
+        <!-- Hidden inputs -->
+        <input type="hidden" name="componentes_json">
+        <input type="hidden" name="perifericos_json">
+        <input type="hidden" name="software_json">
+
+        <div class="px-6 py-4 border-t border-slate-100 flex items-center gap-2 shrink-0 bg-white">
           <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 bg-[#2F4156] text-white text-sm font-medium rounded-lg hover:bg-[#3a5068] transition-colors shadow-sm">
             <i class="bi bi-check-lg"></i>Guardar cambios
           </button>
-          <button type="button" @click="editEquipoOpen = false" class="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
+          <button type="button" @click="editFullOpen = false" class="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
             <i class="bi bi-x-lg"></i>Cancelar
           </button>
         </div>
@@ -501,7 +779,7 @@ document.addEventListener('alpine:init', () => {
         </div>
         <div class="mb-4">
           <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Marca</label>
-          <select name="marca" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent">
+          <select name="marca" class="s2-marca w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700">
             <option value="">— Sin marca —</option>
             {% for m in marcas %}
             <option value="{{ m.pk }}">{{ m.nombre }}</option>
@@ -568,7 +846,9 @@ document.addEventListener('alpine:init', () => {
         </div>
         <div class="mb-4">
           <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Marca</label>
-          <select name="marca" x-model="editDispMarca" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent">
+          <select name="marca" x-model="editDispMarca"
+                  x-effect="$($el).val(editDispMarca || '').trigger('change.select2')"
+                  class="s2-marca w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700">
             <option value="">— Sin marca —</option>
             {% for m in marcas %}
             <option value="{{ m.pk }}">{{ m.nombre }}</option>
@@ -638,7 +918,7 @@ document.addEventListener('alpine:init', () => {
   <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-5">
     <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
       <p class="text-sm font-semibold text-slate-700">Equipos</p>
-      <button @click="createOpen = true; tab='equipo'; componentes=[]; perifericos=[]; swList=[]"
+      <button @click="createOpen = true; tab='equipo'; componentes=[]; perifericos=[]; swList=[]; errCodigo=false; errTipo=false"
               class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2F4156] text-white text-xs font-medium rounded-lg hover:bg-[#3a5068] transition-colors shadow-sm">
         <i class="bi bi-plus-lg"></i>Nuevo equipo
       </button>
@@ -658,7 +938,7 @@ document.addEventListener('alpine:init', () => {
           {% for eq in equipos %}
           <tr class="hover:bg-[#C8D9E6]/20 transition-colors">
             <td class="px-4 py-3">
-              <a href="{% url 'inv:equipo_detalle' eq.pk %}" class="text-sm font-semibold text-[#2F4156] hover:underline">{{ eq.codigo }}</a>
+              <span class="text-sm font-semibold text-slate-800">{{ eq.codigo }}</span>
             </td>
             <td class="px-4 py-3 text-sm text-slate-500">{{ eq.tipo.nombre }}</td>
             <td class="px-4 py-3 text-sm text-slate-500 font-mono">{{ eq.ip|default:"—" }}</td>
@@ -683,19 +963,8 @@ document.addEventListener('alpine:init', () => {
                        @click.outside="open = false"
                        :style="`position:fixed;top:${top}px;right:${right}px`"
                        class="w-44 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-[9999] origin-top-right">
-                    <a href="{% url 'inv:equipo_detalle' eq.pk %}"
-                       class="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:text-[#2F4156] hover:bg-[#C8D9E6]/25 transition-colors">
-                      <i class="bi bi-eye text-xs text-slate-400"></i>Ver detalle
-                    </a>
                     <button type="button"
-                            @click="open=false;
-                              editCodigo='{{ eq.codigo|escapejs }}';
-                              editTipoId='{{ eq.tipo_id }}';
-                              editIp='{{ eq.ip|escapejs }}';
-                              editObs='{{ eq.observaciones|escapejs }}';
-                              editActivo={{ eq.activo|lower }};
-                              editUrl='{% url 'inv:equipo_editar' eq.pk %}';
-                              editEquipoOpen=true"
+                            @click="open=false; openEditFull({{ eq.pk }}, '{% url 'inv:equipo_editar_completo' eq.pk %}')"
                             class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:text-[#2F4156] hover:bg-[#C8D9E6]/25 transition-colors">
                       <i class="bi bi-pencil text-xs text-slate-400"></i>Editar
                     </button>

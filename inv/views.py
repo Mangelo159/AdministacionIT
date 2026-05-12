@@ -84,6 +84,9 @@ class _ModalForm:
                 label = form.fields[campo].label or campo
                 partes.append(f'{label}: {", ".join(errores)}')
         messages.error(self.request, 'No se pudo guardar. ' + ' | '.join(partes))
+        next_url = self.request.POST.get('next', '')
+        if next_url and next_url.startswith('/'):
+            return redirect(next_url)
         return redirect(self.success_url)
 
 
@@ -139,13 +142,13 @@ class MarcaListView(_CatalogoList):
         return ctx
 
 
-class MarcaCreateView(_CatalogoForm, CreateView):
+class MarcaCreateView(_ModalForm, _CatalogoForm, CreateView):
     model = Marca
     form_class = MarcaForm
     success_url = reverse_lazy('inv:marca_lista')
 
 
-class MarcaUpdateView(_CatalogoForm, UpdateView):
+class MarcaUpdateView(_ModalForm, _CatalogoForm, UpdateView):
     model = Marca
     form_class = MarcaForm
     success_url = reverse_lazy('inv:marca_lista')
@@ -194,13 +197,13 @@ class TipoEquipoListView(_CatalogoList):
         return ctx
 
 
-class TipoEquipoCreateView(_CatalogoForm, CreateView):
+class TipoEquipoCreateView(_ModalForm, _CatalogoForm, CreateView):
     model = TipoEquipo
     form_class = TipoEquipoForm
     success_url = reverse_lazy('inv:tipo_equipo_lista')
 
 
-class TipoEquipoUpdateView(_CatalogoForm, UpdateView):
+class TipoEquipoUpdateView(_ModalForm, _CatalogoForm, UpdateView):
     model = TipoEquipo
     form_class = TipoEquipoForm
     success_url = reverse_lazy('inv:tipo_equipo_lista')
@@ -249,13 +252,13 @@ class TipoPerifericoListView(_CatalogoList):
         return ctx
 
 
-class TipoPerifericoCreateView(_CatalogoForm, CreateView):
+class TipoPerifericoCreateView(_ModalForm, _CatalogoForm, CreateView):
     model = TipoPeriferico
     form_class = TipoPerifericoForm
     success_url = reverse_lazy('inv:tipo_periferico_lista')
 
 
-class TipoPerifericoUpdateView(_CatalogoForm, UpdateView):
+class TipoPerifericoUpdateView(_ModalForm, _CatalogoForm, UpdateView):
     model = TipoPeriferico
     form_class = TipoPerifericoForm
     success_url = reverse_lazy('inv:tipo_periferico_lista')
@@ -311,13 +314,13 @@ class InstitucionListView(_CatalogoList):
         return ctx
 
 
-class InstitucionCreateView(_CatalogoForm, CreateView):
+class InstitucionCreateView(_ModalForm, _CatalogoForm, CreateView):
     model = Institucion
     form_class = InstitucionForm
     success_url = reverse_lazy('inv:institucion_lista')
 
 
-class InstitucionUpdateView(_CatalogoForm, UpdateView):
+class InstitucionUpdateView(_ModalForm, _CatalogoForm, UpdateView):
     model = Institucion
     form_class = InstitucionForm
     success_url = reverse_lazy('inv:institucion_lista')
@@ -455,6 +458,12 @@ class GrupoCreateView(_ModalForm, _CatalogoForm, CreateView):
     form_class = GrupoForm
     success_url = reverse_lazy('inv:grupo_lista')
 
+    def get_success_url(self):
+        next_url = self.request.POST.get('next', '')
+        if next_url and next_url.startswith('/'):
+            return next_url
+        return str(self.success_url)
+
 
 class GrupoUpdateView(_ModalForm, _CatalogoForm, UpdateView):
     model = Grupo
@@ -489,6 +498,12 @@ class SubgrupoCreateView(_ModalForm, _CatalogoForm, CreateView):
     model = Subgrupo
     form_class = SubgrupoForm
     success_url = reverse_lazy('inv:grupo_lista')
+
+    def get_success_url(self):
+        next_url = self.request.POST.get('next', '')
+        if next_url and next_url.startswith('/'):
+            return next_url
+        return str(self.success_url)
 
 
 class SubgrupoUpdateView(_ModalForm, _CatalogoForm, UpdateView):
@@ -538,13 +553,13 @@ class TipoComponenteListView(_CatalogoList):
         return ctx
 
 
-class TipoComponenteCreateView(_CatalogoForm, CreateView):
+class TipoComponenteCreateView(_ModalForm, _CatalogoForm, CreateView):
     model = TipoComponente
     form_class = TipoComponenteForm
     success_url = reverse_lazy('inv:tipo_componente_lista')
 
 
-class TipoComponenteUpdateView(_CatalogoForm, UpdateView):
+class TipoComponenteUpdateView(_ModalForm, _CatalogoForm, UpdateView):
     model = TipoComponente
     form_class = TipoComponenteForm
     success_url = reverse_lazy('inv:tipo_componente_lista')
@@ -861,13 +876,13 @@ class SoftwareListView(LoginRequiredMixin, ListView):
         return ctx
 
 
-class SoftwareCreateView(_CatalogoForm, CreateView):
+class SoftwareCreateView(_ModalForm, _CatalogoForm, CreateView):
     model = Software
     form_class = SoftwareForm
     success_url = reverse_lazy('inv:software_lista')
 
 
-class SoftwareUpdateView(_CatalogoForm, UpdateView):
+class SoftwareUpdateView(_ModalForm, _CatalogoForm, UpdateView):
     model = Software
     form_class = SoftwareForm
     success_url = reverse_lazy('inv:software_lista')
@@ -1016,11 +1031,63 @@ class EquipoSubgrupoView(LoginRequiredMixin, View):
     template_name = 'inv/inventario/equipo_subgrupo.html'
 
     def _ctx(self, request, subgrupo, form, modal_open=False):
+        equipos = list(
+            Equipo.objects.filter(subgrupo=subgrupo)
+            .select_related('tipo')
+            .prefetch_related(
+                'componentes__modelo__tipo',
+                'perifericos__tipo',
+                'perifericos__marca',
+                'software_instalado__software',
+            )
+            .order_by('codigo')
+        )
+        equipos_data = {}
+        for eq in equipos:
+            equipos_data[eq.pk] = {
+                'codigo': eq.codigo,
+                'tipo_id': eq.tipo_id,
+                'ip': eq.ip or '',
+                'obs': eq.observaciones or '',
+                'activo': eq.activo,
+                'comps': [
+                    {
+                        'modelo': c.modelo_id,
+                        'tipo_nombre': c.modelo.tipo.nombre if c.modelo and c.modelo.tipo else '',
+                        'modelo_nombre': c.modelo.nombre if c.modelo else '',
+                        'capacidad': c.modelo.capacidad or '' if c.modelo else '',
+                        'activo': c.activo,
+                    }
+                    for c in eq.componentes.all() if c.modelo_id
+                ],
+                'peri': [
+                    {
+                        'tipo': p.tipo_id,
+                        'tipo_nombre': p.tipo.nombre if p.tipo else '',
+                        'marca': p.marca_id,
+                        'marca_nombre': p.marca.nombre if p.marca_id and p.marca else '',
+                        'activo': p.activo,
+                    }
+                    for p in eq.perifericos.all() if p.tipo_id
+                ],
+                'sw': [
+                    {
+                        'software': i.software_id,
+                        'software_nombre': i.software.nombre if i.software else '',
+                        'version': i.version or '',
+                        'fecha_instalacion': str(i.fecha_instalacion) if i.fecha_instalacion else '',
+                        'fecha_vencimiento': str(i.fecha_vencimiento) if i.fecha_vencimiento else '',
+                        'observaciones': i.observaciones or '',
+                    }
+                    for i in eq.software_instalado.all() if i.software_id
+                ],
+            }
         return {
             'subgrupo': subgrupo,
             'grupo': subgrupo.grupo,
             'sede': subgrupo.grupo.sede,
-            'equipos': Equipo.objects.filter(subgrupo=subgrupo).select_related('tipo').order_by('codigo'),
+            'equipos': equipos,
+            'equipos_data': equipos_data,
             'dispositivos': Dispositivo.objects.filter(subgrupo=subgrupo).select_related('tipo', 'marca').order_by('tipo__nombre'),
             'form': form,
             'modal_open': modal_open,
@@ -1182,6 +1249,68 @@ def equipo_delete(request, pk):
 
 
 @login_required
+@require_POST
+def equipo_editar_completo(request, pk):
+    equipo = get_object_or_404(Equipo, pk=pk)
+    form = EquipoForm(request.POST, instance=equipo)
+    if form.is_valid():
+        equipo = form.save()
+        equipo.componentes.all().delete()
+        for c in _parse_json_field(request.POST, 'componentes_json'):
+            if c.get('modelo'):
+                try:
+                    Componente.objects.create(
+                        equipo=equipo,
+                        modelo_id=int(c['modelo']),
+                        activo=bool(c.get('activo', True))
+                    )
+                except Exception:
+                    pass
+        equipo.perifericos.all().delete()
+        for p in _parse_json_field(request.POST, 'perifericos_json'):
+            if p.get('tipo'):
+                try:
+                    Periferico.objects.create(
+                        equipo=equipo,
+                        tipo_id=int(p['tipo']),
+                        marca_id=int(p['marca']) if p.get('marca') else None,
+                        activo=bool(p.get('activo', True))
+                    )
+                except Exception:
+                    pass
+        equipo.software_instalado.all().delete()
+        for s in _parse_json_field(request.POST, 'software_json'):
+            if s.get('software'):
+                try:
+                    InstalacionSoftware.objects.create(
+                        equipo=equipo,
+                        software_id=int(s['software']),
+                        version=s.get('version') or '',
+                        fecha_instalacion=s.get('fecha_instalacion') or None,
+                        fecha_vencimiento=s.get('fecha_vencimiento') or None,
+                        observaciones=s.get('observaciones') or '',
+                    )
+                except Exception:
+                    pass
+        messages.success(request, f'Equipo "{equipo.codigo}" actualizado.')
+    else:
+        partes = []
+        for campo, errores in form.errors.items():
+            if campo == '__all__':
+                partes.extend(errores)
+            else:
+                label = form.fields[campo].label or campo
+                partes.append(f'{label}: {", ".join(errores)}')
+        messages.error(request, 'No se pudo guardar. ' + ' | '.join(partes))
+    next_url = request.POST.get('next', '')
+    if next_url and next_url.startswith('/'):
+        return redirect(next_url)
+    if equipo.subgrupo_id:
+        return redirect('inv:equipo_lista_subgrupo', subgrupo_pk=equipo.subgrupo_id)
+    return redirect('inv:equipo_lista')
+
+
+@login_required
 def subgrupos_json(request):
     grupo_id = request.GET.get('grupo_id')
     if not grupo_id:
@@ -1317,9 +1446,10 @@ class DispositivoListView(LoginRequiredMixin, View):
         })
 
 
-class DispositivoCreateView(_CatalogoForm, CreateView):
+class DispositivoCreateView(_ModalForm, _CatalogoForm, CreateView):
     model = Dispositivo
     form_class = DispositivoForm
+    success_url = reverse_lazy('inv:dispositivo_lista')
 
     def get_success_url(self):
         next_url = self.request.POST.get('next') or self.request.GET.get('next')
@@ -1328,9 +1458,10 @@ class DispositivoCreateView(_CatalogoForm, CreateView):
         return reverse('inv:dispositivo_lista')
 
 
-class DispositivoUpdateView(_CatalogoForm, UpdateView):
+class DispositivoUpdateView(_ModalForm, _CatalogoForm, UpdateView):
     model = Dispositivo
     form_class = DispositivoForm
+    success_url = reverse_lazy('inv:dispositivo_lista')
 
     def get_success_url(self):
         next_url = self.request.POST.get('next') or self.request.GET.get('next')

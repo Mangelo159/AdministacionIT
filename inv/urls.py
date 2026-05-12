@@ -18,6 +18,7 @@ urlpatterns = [
     path('inventario/equipos/nuevo/', views.EquipoCreateView.as_view(), name='equipo_crear'),
     path('inventario/equipos/<int:pk>/', views.EquipoDetailView.as_view(), name='equipo_detalle'),
     path('inventario/equipos/<int:pk>/editar/', views.EquipoUpdateView.as_view(), name='equipo_editar'),
+    path('inventario/equipos/<int:pk>/editar-completo/', views.equipo_editar_completo, name='equipo_editar_completo'),
     path('inventario/equipos/<int:pk>/toggle/', views.equipo_toggle, name='equipo_toggle'),
     path('inventario/equipos/<int:pk>/eliminar/', views.equipo_delete, name='equipo_eliminar'),
 

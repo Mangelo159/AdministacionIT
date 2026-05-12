@@ -7,6 +7,23 @@
     <title>{% block title %}Inventario{% endblock %}</title>
     {% tailwind_css %}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+    <style>
+      .select2-container--default .select2-selection--single{border:1px solid #e2e8f0;border-radius:.5rem;height:38px;background:#fff}
+      .select2-container--default .select2-selection--single .select2-selection__rendered{line-height:38px;padding-left:.625rem;padding-right:2rem;color:#334155;font-size:.875rem}
+      .select2-container--default .select2-selection--single .select2-selection__arrow{height:36px;right:4px}
+      .select2-container--default .select2-selection--single .select2-selection__placeholder{color:#94a3b8}
+      .select2-container--default.select2-container--focus .select2-selection--single,
+      .select2-container--default.select2-container--open .select2-selection--single{border-color:#2F4156;box-shadow:0 0 0 2px rgba(47,65,86,.15);outline:none}
+      .select2-dropdown{border:1px solid #e2e8f0;border-radius:.5rem;box-shadow:0 10px 25px -5px rgba(0,0,0,.1)}
+      .select2-container--default .select2-search--dropdown .select2-search__field{border:1px solid #e2e8f0;border-radius:.375rem;padding:.375rem .625rem;font-size:.875rem;outline:none}
+      .select2-container--default .select2-search--dropdown .select2-search__field:focus{border-color:#2F4156;box-shadow:0 0 0 2px rgba(47,65,86,.15)}
+      .select2-container--default .select2-results__option{font-size:.875rem;padding:.45rem .75rem}
+      .select2-container--default .select2-results__option--highlighted[aria-selected]{background-color:#2F4156}
+      .select2-container--default .select2-results__option[aria-selected=true]{background-color:#C8D9E6;color:#2F4156}
+      .select2-container--disabled .select2-selection--single{background-color:#f1f5f9;cursor:not-allowed}
+      .select2-container--open{z-index:99999!important}
+    </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body class="flex flex-col min-h-screen bg-slate-50 text-slate-800 antialiased">
@@ -199,7 +216,52 @@
         </div>
     </footer>
 
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script>
+    window._s2MarcaInit = function(el) {
+      if (!el || $(el).hasClass('select2-hidden-accessible')) return;
+      $(el).select2({
+        placeholder: '— Buscar marca —',
+        allowClear: true,
+        width: '100%',
+        dropdownParent: $('body'),
+        language: { noResults: function() { return 'Sin resultados'; } }
+      });
+    };
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.s2-marca').forEach(function(el) { window._s2MarcaInit(el); });
+    });
+    window._s2Modelo = function(el, opciones, onCambio, valorInicial) {
+      if (!el) return;
+      var $el = $(el);
+      if ($el.hasClass('select2-hidden-accessible')) $el.select2('destroy');
+      $el.empty().append('<option value="">— Buscar modelo —</option>');
+      opciones.forEach(function(m) {
+        $el.append(new Option(m.nombre + (m.capacidad ? ' (' + m.capacidad + ')' : ''), m.id));
+      });
+      $el.prop('disabled', !opciones.length);
+      $el.select2({
+        placeholder: '— Buscar modelo —',
+        allowClear: true,
+        width: '100%',
+        dropdownParent: $('body'),
+        language: { noResults: function() { return 'Sin resultados'; } }
+      }).off('change.s2m').on('change.s2m', function() { onCambio(this.value); });
+      if (valorInicial) $el.val(valorInicial).trigger('change.s2m');
+    };
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     {% block extra_js %}{% endblock %}
+    <script>
+    document.addEventListener('submit', function(e) {
+      if (e.defaultPrevented) return;
+      e.target.querySelectorAll('[type="submit"]').forEach(function(btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        btn.style.cursor = 'not-allowed';
+      });
+    });
+    </script>
 </body>
 </html>

@@ -32,6 +32,8 @@
              grupoId: {{ form.grupo.value|default:"null" }},
              subgrupos: JSON.parse(document.getElementById("init-sg-edit").textContent),
              subgrupoValue: {{ form.subgrupo.value|default:"null" }},
+             errCodigo: false,
+             errTipo: false,
              async onGrupoChange(val) {
                this.grupoId = val || null;
                this.subgrupoValue = null;
@@ -39,9 +41,15 @@
                const r = await fetch(`{% url "inv:subgrupos_json" %}?grupo_id=${val}`);
                const d = await r.json();
                this.subgrupos = d.subgrupos;
+             },
+             submitForm(e) {
+               const f = e.target;
+               this.errCodigo = !f.querySelector("[name=codigo]").value.trim();
+               this.errTipo = !f.querySelector("[name=tipo]").value;
+               if (this.errCodigo || this.errTipo) e.preventDefault();
              }
            }'>
-        <form method="post" novalidate>
+        <form method="post" novalidate @submit="submitForm($event)">
           {% csrf_token %}
 
           <!-- Código -->
@@ -52,6 +60,8 @@
             {{ form.codigo }}
             {% if form.codigo.errors %}
             <p class="mt-1 text-xs text-red-600">{{ form.codigo.errors|join:", " }}</p>
+            {% elif not form.codigo.errors %}
+            <p x-show="errCodigo" x-cloak class="mt-1 text-xs text-red-600">El código es obligatorio.</p>
             {% endif %}
           </div>
 
@@ -63,6 +73,8 @@
             {{ form.tipo }}
             {% if form.tipo.errors %}
             <p class="mt-1 text-xs text-red-600">{{ form.tipo.errors|join:", " }}</p>
+            {% elif not form.tipo.errors %}
+            <p x-show="errTipo" x-cloak class="mt-1 text-xs text-red-600">Selecciona un tipo de equipo.</p>
             {% endif %}
           </div>
 
