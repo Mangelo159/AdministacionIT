@@ -103,9 +103,7 @@
           </div>
           <div>
             <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Marca</label>
-            <select name="marca"
-                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700
-                           focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent">
+            <select name="marca" class="s2-marca w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700">
               <option value="">— Sin marca —</option>
               {% for m in marcas %}
               <option value="{{ m.pk }}">{{ m.nombre }}</option>
@@ -214,8 +212,8 @@
           <div>
             <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Marca</label>
             <select name="marca" x-model="editMarca"
-                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700
-                           focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent">
+                    x-effect="$($el).val(editMarca || '').trigger('change.select2')"
+                    class="s2-marca w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700">
               <option value="">— Sin marca —</option>
               {% for m in marcas %}
               <option value="{{ m.pk }}">{{ m.nombre }}</option>
