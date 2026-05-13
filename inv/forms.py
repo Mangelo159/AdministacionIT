@@ -2,7 +2,7 @@ from django import forms
 from .models import (Marca, TipoEquipo, TipoPeriferico, TipoComponente, ModeloComponente,
                      Institucion, Sede, Grupo, Subgrupo, Rol, Persona, Perfil, Modulo, Software,
                      Equipo, Componente, Periferico, InstalacionSoftware, Dispositivo,
-                     ViaReporte, TipoRequerimiento, Estado, Prioridad)
+                     ViaReporte, TipoRequerimiento, Estado, Prioridad, GrupoProgramas)
 
 
 class MarcaForm(forms.ModelForm):
@@ -184,12 +184,29 @@ class SoftwareForm(forms.ModelForm):
         }
 
 
+class GrupoProgramasForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['programas'].queryset = Software.objects.filter(activo=True).order_by('nombre')
+
+    class Meta:
+        model = GrupoProgramas
+        fields = ['nombre', 'descripcion', 'programas', 'activo']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'autofocus': True}),
+            'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'programas': forms.CheckboxSelectMultiple(),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
 # ── INVENTARIO ────────────────────────────────────────────────────────────────
 
 class EquipoForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['grupo'].queryset = Grupo.objects.select_related('sede').filter(activo=True)
+        self.fields['grupo_programas'].queryset = GrupoProgramas.objects.filter(activo=True).order_by('nombre')
         grupo_id = self.data.get('grupo') or (
             self.instance.subgrupo.grupo_id if self.instance.pk and self.instance.subgrupo_id else None
         )
@@ -200,7 +217,7 @@ class EquipoForm(forms.ModelForm):
 
     class Meta:
         model = Equipo
-        fields = ['codigo', 'tipo', 'grupo', 'subgrupo', 'ip', 'observaciones', 'activo']
+        fields = ['codigo', 'tipo', 'grupo', 'subgrupo', 'grupo_programas', 'ip', 'observaciones', 'activo']
         widgets = {
             'codigo': forms.TextInput(attrs={'class': 'form-control', 'autofocus': True}),
             'tipo': forms.Select(attrs={'class': 'form-select'}),
@@ -209,6 +226,10 @@ class EquipoForm(forms.ModelForm):
                 '@change': 'onGrupoChange($event.target.value)',
             }),
             'subgrupo': forms.Select(attrs={'class': 'form-select'}),
+            'grupo_programas': forms.Select(attrs={
+                'class': 'form-select',
+                'id': 'id_grupo_programas',
+            }),
             'ip': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 192.168.1.100'}),
             'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),

@@ -19,13 +19,15 @@ from .models import (Marca, TipoEquipo, TipoPeriferico, TipoComponente, ModeloCo
                      Modulo, Perfil, Institucion, Sede, Grupo, Subgrupo, Rol, Persona, Software,
                      Equipo, Componente, Periferico, InstalacionSoftware, Dispositivo,
                      ViaReporte, TipoRequerimiento, Estado, Prioridad,
+                     GrupoProgramas,
                      sedes_permitidas, _es_admin_rol)
 from .forms import (MarcaForm, TipoEquipoForm, TipoPerifericoForm, TipoComponenteForm,
                     ModeloComponenteForm,
                     InstitucionForm, SedeForm, GrupoForm, SubgrupoForm,
                     RolForm, PersonaForm, PerfilForm, ModuloForm, SoftwareForm,
                     EquipoForm, DispositivoForm, ComponenteForm, PerifericoForm, InstalacionSoftwareForm,
-                    ViaReporteForm, TipoRequerimientoForm, EstadoForm, PrioridadForm)
+                    ViaReporteForm, TipoRequerimientoForm, EstadoForm, PrioridadForm,
+                    GrupoProgramasForm)
 
 
 def _sedes_ids(user):
@@ -1040,6 +1042,76 @@ def software_delete(request, pk):
     return redirect('inv:software_lista')
 
 
+# ── GRUPO DE PROGRAMAS ────────────────────────────────────────────────────────
+
+class GrupoProgramasListView(LoginRequiredMixin, ListView):
+    model = GrupoProgramas
+    template_name = 'inv/catalogos/grupo_programas_lista.html'
+    context_object_name = 'objetos'
+    paginate_by = 20
+
+    def get_queryset(self):
+        return GrupoProgramas.objects.prefetch_related('programas').order_by('nombre')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        u = self.request.user
+        ctx['titulo'] = 'Grupos de Programas'
+        ctx['puede_crear']   = _tiene_perm(u, 'inv.add_grupoprogramas')
+        ctx['puede_editar']  = _tiene_perm(u, 'inv.change_grupoprogramas')
+        ctx['puede_eliminar'] = _tiene_perm(u, 'inv.delete_grupoprogramas')
+        return ctx
+
+
+class GrupoProgramasCreateView(_CatalogoForm, CreateView):
+    model = GrupoProgramas
+    form_class = GrupoProgramasForm
+    template_name = 'inv/catalogos/grupo_programas_form.html'
+    success_url = reverse_lazy('inv:grupo_programas_lista')
+
+
+class GrupoProgramasUpdateView(_CatalogoForm, UpdateView):
+    model = GrupoProgramas
+    form_class = GrupoProgramasForm
+    template_name = 'inv/catalogos/grupo_programas_form.html'
+    success_url = reverse_lazy('inv:grupo_programas_lista')
+
+
+@login_required
+@require_POST
+def grupo_programas_toggle(request, pk):
+    r = _sin_permiso(request, 'inv.change_grupoprogramas', 'inv:grupo_programas_lista')
+    if r: return r
+    obj = get_object_or_404(GrupoProgramas, pk=pk)
+    obj.activo = not obj.activo
+    obj.save(update_fields=['activo'])
+    messages.success(request, f'Grupo "{obj.nombre}" {"activado" if obj.activo else "desactivado"}.')
+    return redirect('inv:grupo_programas_lista')
+
+
+@login_required
+@require_POST
+def grupo_programas_delete(request, pk):
+    r = _sin_permiso(request, 'inv.delete_grupoprogramas', 'inv:grupo_programas_lista')
+    if r: return r
+    obj = get_object_or_404(GrupoProgramas, pk=pk)
+    nombre = obj.nombre
+    try:
+        obj.delete()
+        messages.success(request, f'Grupo "{nombre}" eliminado.')
+    except ProtectedError:
+        messages.error(request, f'No se puede eliminar el grupo "{nombre}" porque tiene registros asociados.')
+    return redirect('inv:grupo_programas_lista')
+
+
+@login_required
+def grupo_programas_software_json(request, pk):
+    """Devuelve la lista de software de un grupo para pre-cargar en el formulario de equipo."""
+    grupo = get_object_or_404(GrupoProgramas, pk=pk, activo=True)
+    data = [{'id': s.id, 'nombre': s.nombre} for s in grupo.programas.filter(activo=True).order_by('nombre')]
+    return JsonResponse({'programas': data})
+
+
 # ── EQUIPO ────────────────────────────────────────────────────────────────────
 
 _CATALOG_TTL = 900  # 15 minutos
@@ -1062,7 +1134,8 @@ def _catalogo_cached(key, queryset_fn):
 
 
 def _invalidar_catalogos():
-    cache.delete_many(['tc_json', 'tp_json', 'marcas_json', 'sw_json', 'grupos_activos', 'te_json'])
+    cache.delete_many(['tc_json', 'tp_json', 'marcas_json', 'sw_json', 'grupos_activos', 'te_json',
+                       'tp_obj', 'marcas_obj', 'te_obj'])
 
 
 class EquipoListView(LoginRequiredMixin, View):
@@ -1118,7 +1191,7 @@ class EquipoSedeView(LoginRequiredMixin, View):
         sede = get_object_or_404(qs)
         grupos = (
             Grupo.objects.filter(sede=sede, activo=True)
-            .order_by('nombre')
+            .order_by('id')
             .annotate(
                 num_subgrupos=Count('subgrupos', filter=Q(subgrupos__activo=True), distinct=True),
                 num_equipos=Count('equipos', distinct=True),
@@ -1134,7 +1207,7 @@ class EquipoGrupoView(LoginRequiredMixin, View):
         grupo = get_object_or_404(Grupo.objects.select_related('sede__institucion'), pk=grupo_pk, activo=True)
         subgrupos = (
             Subgrupo.objects.filter(grupo=grupo, activo=True)
-            .order_by('nombre')
+            .order_by('id')
             .annotate(
                 num_equipos=Count('equipos', distinct=True),
                 num_dispositivos=Count('dispositivos', distinct=True),
@@ -1144,13 +1217,14 @@ class EquipoGrupoView(LoginRequiredMixin, View):
             'grupo': grupo,
             'sede': grupo.sede,
             'subgrupos': subgrupos,
-            'tipos_equipo': TipoEquipo.objects.filter(activo=True).order_by('nombre'),
-            'tipos_periferico': TipoPeriferico.objects.filter(activo=True).order_by('nombre'),
-            'marcas': Marca.objects.filter(activo=True).order_by('nombre'),
+            'tipos_equipo': _catalogo_cached('te_obj', lambda: list(TipoEquipo.objects.filter(activo=True).order_by('nombre'))),
+            'tipos_periferico': _catalogo_cached('tp_obj', lambda: list(TipoPeriferico.objects.filter(activo=True).order_by('nombre'))),
+            'marcas': _catalogo_cached('marcas_obj', lambda: list(Marca.objects.filter(activo=True).order_by('nombre'))),
             'tc_json': _catalogo_cached('tc_json', lambda: TipoComponente.objects.filter(activo=True).values('id', 'nombre')),
             'tp_json': _catalogo_cached('tp_json', lambda: TipoPeriferico.objects.filter(activo=True).values('id', 'nombre')),
             'marcas_json': _catalogo_cached('marcas_json', lambda: Marca.objects.filter(activo=True).values('id', 'nombre')),
             'sw_json': _catalogo_cached('sw_json', lambda: Software.objects.filter(activo=True).values('id', 'nombre')),
+            'gp_json': list(GrupoProgramas.objects.filter(activo=True).values('id', 'nombre').order_by('nombre')),
         })
 
 
@@ -1167,13 +1241,14 @@ class EquipoSubgrupoView(LoginRequiredMixin, View):
                 'perifericos__marca',
                 'software_instalado__software',
             )
-            .order_by('codigo')
+            .order_by('id')
         )
         equipos_data = {}
         for eq in equipos:
             equipos_data[eq.pk] = {
                 'codigo': eq.codigo,
                 'tipo_id': eq.tipo_id,
+                'tipo_nombre': eq.tipo.nombre if eq.tipo else '',
                 'ip': eq.ip or '',
                 'obs': eq.observaciones or '',
                 'activo': eq.activo,
@@ -1215,7 +1290,7 @@ class EquipoSubgrupoView(LoginRequiredMixin, View):
             'sede': subgrupo.grupo.sede,
             'equipos': equipos,
             'equipos_data': equipos_data,
-            'dispositivos': Dispositivo.objects.filter(subgrupo=subgrupo).select_related('tipo', 'marca').order_by('tipo__nombre'),
+            'dispositivos': Dispositivo.objects.filter(subgrupo=subgrupo).select_related('tipo', 'marca').order_by('id'),
             'form': form,
             'modal_open': modal_open,
             'puede_agregar':  _tiene_perm(request.user, 'inv.add_equipo'),
@@ -1225,9 +1300,10 @@ class EquipoSubgrupoView(LoginRequiredMixin, View):
             'tp_json': _catalogo_cached('tp_json', lambda: TipoPeriferico.objects.filter(activo=True).values('id', 'nombre')),
             'marcas_json': _catalogo_cached('marcas_json', lambda: Marca.objects.filter(activo=True).values('id', 'nombre')),
             'sw_json': _catalogo_cached('sw_json', lambda: Software.objects.filter(activo=True).values('id', 'nombre')),
+            'gp_json': list(GrupoProgramas.objects.filter(activo=True).values('id', 'nombre').order_by('nombre')),
             'te_json': _catalogo_cached('te_json', lambda: TipoEquipo.objects.filter(activo=True).values('id', 'nombre')),
-            'tipos_periferico': TipoPeriferico.objects.filter(activo=True).order_by('nombre'),
-            'marcas': Marca.objects.filter(activo=True).order_by('nombre'),
+            'tipos_periferico': _catalogo_cached('tp_obj', lambda: list(TipoPeriferico.objects.filter(activo=True).order_by('nombre'))),
+            'marcas': _catalogo_cached('marcas_obj', lambda: list(Marca.objects.filter(activo=True).order_by('nombre'))),
             'init_comp': _parse_json_field(form.data, 'componentes_json') if form.is_bound else [],
             'init_peri': _parse_json_field(form.data, 'perifericos_json') if form.is_bound else [],
             'init_sw':   _parse_json_field(form.data, 'software_json')    if form.is_bound else [],
@@ -1278,9 +1354,9 @@ class EquipoDetailView(LoginRequiredMixin, DetailView):
         equipo = self.object
         ctx['componentes'] = equipo.componentes.select_related(
             'modelo__tipo', 'modelo__marca'
-        ).order_by('modelo__tipo__nombre', 'modelo__nombre')
-        ctx['perifericos'] = equipo.perifericos.select_related('tipo', 'marca').order_by('tipo__nombre')
-        ctx['software_instalado'] = equipo.software_instalado.select_related('software').order_by('software__nombre')
+        ).order_by('id')
+        ctx['perifericos'] = equipo.perifericos.select_related('tipo', 'marca').order_by('id')
+        ctx['software_instalado'] = equipo.software_instalado.select_related('software').order_by('id')
         ctx['tipos_componente'] = TipoComponente.objects.filter(activo=True)
         ctx['tipos_periferico'] = TipoPeriferico.objects.filter(activo=True)
         ctx['marcas'] = Marca.objects.filter(activo=True)
@@ -1289,7 +1365,7 @@ class EquipoDetailView(LoginRequiredMixin, DetailView):
         if equipo.subgrupo_id:
             ctx['dispositivos'] = Dispositivo.objects.filter(
                 subgrupo=equipo.subgrupo
-            ).select_related('tipo', 'marca').order_by('tipo__nombre')
+            ).select_related('tipo', 'marca').order_by('id')
         else:
             ctx['dispositivos'] = Dispositivo.objects.none()
         return ctx
@@ -1562,7 +1638,7 @@ class DispositivoListView(LoginRequiredMixin, View):
         tipos_qs = TipoPeriferico.objects.filter(activo=True).order_by('nombre')
         marcas_qs = Marca.objects.filter(activo=True).order_by('nombre')
 
-        qs = Dispositivo.objects.select_related('subgrupo__grupo__sede', 'tipo', 'marca')
+        qs = Dispositivo.objects.select_related('subgrupo__grupo__sede', 'tipo', 'marca').order_by('id')
         if q:
             qs = qs.filter(
                 Q(tipo__nombre__icontains=q) | Q(ip__icontains=q) |

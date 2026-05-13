@@ -4,7 +4,10 @@
 {% block extra_css %}<style>[x-cloak]{display:none!important}</style>{% endblock %}
 
 {% block extra_js %}
-<script>window._MCURL = "{% url 'inv:modelos_componente_json' %}";</script>
+<script>
+window._MCURL   = "{% url 'inv:modelos_componente_json' %}";
+window._GPSWURL = "{% url 'inv:grupo_programas_software_json' 0 %}";
+</script>
 {% endblock %}
 
 {% block content %}
@@ -12,6 +15,7 @@
 {{ tp_json|json_script:"tp-data" }}
 {{ marcas_json|json_script:"mr-data" }}
 {{ sw_json|json_script:"sw-data" }}
+{{ gp_json|json_script:"gp-data" }}
 
 <div x-data="grupoPage()">
 
@@ -41,9 +45,31 @@
     </div>
   </div>
 
+  <!-- ── BUSCADOR ─────────────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 mb-4">
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 flex-1 border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-[#2F4156]/20 focus-within:border-[#2F4156]/40 transition-all">
+        <i class="bi bi-search text-slate-400 text-sm shrink-0"></i>
+        <input type="search" x-model="sgSearch"
+               placeholder="Buscar subgrupo por nombre…"
+               class="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 outline-none">
+      </div>
+      <button x-cloak x-show="sgSearch.trim()"
+              @click="sgSearch = ''"
+              class="inline-flex items-center gap-1.5 px-3 py-2 text-xs text-slate-500 border border-slate-200 rounded-lg hover:text-red-500 hover:bg-red-50 hover:border-red-200 transition-colors">
+        <i class="bi bi-x-lg text-[10px]"></i>Limpiar
+      </button>
+    </div>
+  </div>
+
+  <!-- ── TABLA ─────────────────────────────────────────────────────────────────── -->
   <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-    <div class="px-4 py-3 border-b border-slate-100">
+    <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
       <p class="text-sm font-semibold text-slate-700">Subgrupos</p>
+      <p x-cloak x-show="sgSearch.trim()"
+         class="text-xs text-slate-400">
+        Mostrando resultados para "<span class="font-medium text-slate-600" x-text="sgSearch.trim()"></span>"
+      </p>
     </div>
     <div class="overflow-x-auto">
       <table class="min-w-full">
@@ -58,7 +84,8 @@
         </thead>
         <tbody class="divide-y divide-slate-100">
           {% for sg in subgrupos %}
-          <tr class="hover:bg-[#C8D9E6]/20 transition-colors">
+          <tr class="hover:bg-[#C8D9E6]/20 transition-colors"
+              x-show="!sgSearch.trim() || '{{ sg.nombre|lower|escapejs }}'.includes(sgSearch.toLowerCase().trim())">
             <td class="px-4 py-3">
               <p class="text-sm font-semibold text-slate-700">{{ sg.nombre }}</p>
             </td>
@@ -349,12 +376,40 @@
 
             <!-- TAB: SOFTWARE -->
             <div x-show="tab==='software'">
+
+              <!-- ── Selector de Grupo de Programas ── -->
+              <div class="mb-4 rounded-xl border border-[#2F4156]/20 bg-[#f0f4f8] p-3">
+                <p class="text-xs font-semibold text-[#2F4156] mb-2 flex items-center gap-1.5">
+                  <i class="bi bi-collection-fill"></i>Cargar desde Grupo de Programas
+                </p>
+                <div class="flex items-center gap-2">
+                  <select x-model="selectedGp"
+                          class="flex-1 rounded-lg border border-slate-300 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/30">
+                    <option value="">— Selecciona un grupo —</option>
+                    <template x-for="gp in gpList" :key="gp.id">
+                      <option :value="gp.id" x-text="gp.nombre"></option>
+                    </template>
+                  </select>
+                  <button type="button" @click="loadGrupoSoftware()" :disabled="!selectedGp"
+                          :class="selectedGp ? 'bg-[#2F4156] text-white hover:bg-[#3a5068]' : 'bg-slate-200 text-slate-400 cursor-not-allowed'"
+                          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors shrink-0">
+                    <i class="bi bi-download"></i>Cargar
+                  </button>
+                </div>
+                <p x-cloak x-show="gpList.length === 0" class="mt-1.5 text-xs text-slate-500 italic">
+                  Sin grupos registrados — ve a Mantenimientos › Grupos de Programas para crearlos.
+                </p>
+              </div>
+
+              <!-- ── Lista de software agregado ── -->
               <div x-cloak x-show="swList.length>0" class="mb-4 rounded-lg border border-slate-200 overflow-hidden">
                 <table class="min-w-full text-xs">
                   <thead class="bg-slate-50"><tr>
                     <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Software</th>
                     <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Versión</th>
                     <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Instalación</th>
+                    <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Vencimiento</th>
+                    <th class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide">Descripción</th>
                     <th class="px-3 py-2 w-8"></th>
                   </tr></thead>
                   <tbody class="divide-y divide-slate-100">
@@ -363,14 +418,18 @@
                         <td class="px-3 py-2 font-medium" x-text="s.software_nombre"></td>
                         <td class="px-3 py-2 text-slate-500" x-text="s.version||'—'"></td>
                         <td class="px-3 py-2 text-slate-500" x-text="s.fecha_instalacion||'—'"></td>
+                        <td class="px-3 py-2 text-slate-500" x-text="s.fecha_vencimiento||'—'"></td>
+                        <td class="px-3 py-2 text-slate-500 max-w-[120px] truncate" :title="s.observaciones" x-text="s.observaciones||'—'"></td>
                         <td class="px-3 py-2"><button type="button" @click="swList.splice(i,1)" class="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"><i class="bi bi-x-lg text-xs"></i></button></td>
                       </tr>
                     </template>
                   </tbody>
                 </table>
               </div>
+
+              <!-- ── Agregar software individual ── -->
               <div class="bg-slate-50 rounded-xl border border-slate-200 p-4">
-                <p class="text-xs font-semibold text-slate-600 mb-3 flex items-center gap-1.5"><i class="bi bi-plus-circle text-[#2F4156]"></i>Agregar software</p>
+                <p class="text-xs font-semibold text-slate-600 mb-3 flex items-center gap-1.5"><i class="bi bi-plus-circle text-[#2F4156]"></i>Agregar software individual</p>
                 <div class="grid grid-cols-2 gap-3 mb-3">
                   <div class="col-span-2">
                     <label class="block text-xs text-slate-500 mb-1">Software <span class="text-red-500">*</span></label>
@@ -386,6 +445,14 @@
                   <div>
                     <label class="block text-xs text-slate-500 mb-1">F. Instalación</label>
                     <input x-model="newSw.fecha_instalacion" type="date" class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
+                  </div>
+                  <div>
+                    <label class="block text-xs text-slate-500 mb-1">F. Vencimiento</label>
+                    <input x-model="newSw.fecha_vencimiento" type="date" class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20">
+                  </div>
+                  <div class="col-span-2">
+                    <label class="block text-xs text-slate-500 mb-1">Descripción / Observaciones</label>
+                    <textarea x-model="newSw.observaciones" rows="2" placeholder="Notas sobre esta instalación…" class="w-full rounded-lg border border-slate-200 bg-white text-sm px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-[#2F4156]/20 resize-none"></textarea>
                   </div>
                 </div>
                 <div class="flex justify-end">
@@ -513,6 +580,7 @@ function grupoPage() {
     activeSgNombre: '',
     equipoAction: '',
     tab: 'equipo',
+    sgSearch: '',
 
     tc: [], tp: [], mr: [], swc: [],
 
@@ -544,17 +612,33 @@ function grupoPage() {
     },
 
     swList: [],
-    newSw: { software: '', version: '', fecha_instalacion: '', observaciones: '' },
+    newSw: { software: '', version: '', fecha_instalacion: '', fecha_vencimiento: '', observaciones: '' },
+    gpList: [],
+    selectedGp: '',
     addSw() {
       if (!this.newSw.software) return;
       const s = this.swc.find(x => x.id == this.newSw.software);
       this.swList.push({ ...this.newSw, software_nombre: s ? s.nombre : '' });
-      this.newSw = { software: '', version: '', fecha_instalacion: '', observaciones: '' };
+      this.newSw = { software: '', version: '', fecha_instalacion: '', fecha_vencimiento: '', observaciones: '' };
+    },
+    async loadGrupoSoftware() {
+      if (!this.selectedGp) return;
+      const r = await fetch(window._GPSWURL.replace('/0/', `/${this.selectedGp}/`));
+      const d = await r.json();
+      const existentes = new Set(this.swList.map(s => String(s.software)));
+      for (const p of d.programas) {
+        if (!existentes.has(String(p.id))) {
+          this.swList.push({ software: p.id, software_nombre: p.nombre, version: '', fecha_instalacion: '', fecha_vencimiento: '', observaciones: '' });
+          existentes.add(String(p.id));
+        }
+      }
+      this.selectedGp = '';
     },
 
     async init() {
       const g = id => JSON.parse(document.getElementById(id).textContent);
       this.tc = g('tc-data'); this.tp = g('tp-data'); this.mr = g('mr-data'); this.swc = g('sw-data');
+      this.gpList = g('gp-data');
       await this.$nextTick();
       window._s2Modelo(this.$refs.cPeriMarcaSel, this.mr, v => this.newPeri.marca = v);
     },
@@ -569,7 +653,7 @@ function grupoPage() {
       this.swList = [];
       this.newComp = { tipo: '', modelos: [], modelo: '', activo: true };
       this.newPeri = { tipo: '', marca: '', activo: true };
-      this.newSw = { software: '', version: '', fecha_instalacion: '', observaciones: '' };
+      this.newSw = { software: '', version: '', fecha_instalacion: '', fecha_vencimiento: '', observaciones: '' };
       this.createEquipoOpen = true;
     },
     openDisp(sgPk, sgNombre) {

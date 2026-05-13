@@ -260,6 +260,7 @@ class Equipo(models.Model):
     tipo = models.ForeignKey(TipoEquipo, on_delete=models.PROTECT)
     grupo = models.ForeignKey(Grupo, on_delete=models.PROTECT, null=True, blank=True, related_name='equipos')
     subgrupo = models.ForeignKey(Subgrupo, on_delete=models.PROTECT, null=True, blank=True, related_name='equipos')
+    grupo_programas = models.ForeignKey('GrupoProgramas', on_delete=models.SET_NULL, null=True, blank=True, related_name='equipos', verbose_name='Grupo de programas')
     ip = models.CharField(max_length=45, blank=True, verbose_name='Dirección IP')
     observaciones = models.TextField(blank=True)
     activo = models.BooleanField(default=True)
@@ -381,6 +382,23 @@ class Software(models.Model):
         return self.nombre
 
 
+class GrupoProgramas(models.Model):
+    """Plantilla de software reutilizable para asignar a equipos."""
+    nombre = models.CharField(max_length=150, unique=True)
+    descripcion = models.TextField(blank=True)
+    programas = models.ManyToManyField('Software', blank=True, related_name='grupos_programas')
+    activo = models.BooleanField(default=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = 'Grupo de programas'
+        verbose_name_plural = 'Grupos de programas'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
 class InstalacionSoftware(models.Model):
     """Software instalado en un equipo específico, con su licencia."""
     equipo = models.ForeignKey(Equipo, on_delete=models.CASCADE, related_name='software_instalado')
@@ -446,7 +464,11 @@ def _es_admin_rol(user):
     """True si el usuario tiene al menos un Perfil activo con Rol marcado como es_admin."""
     if not hasattr(user, 'persona'):
         return False
-    return Perfil.objects.filter(persona=user.persona, activo=True, rol__es_admin=True).exists()
+    if not hasattr(user, '_es_admin_cached'):
+        user._es_admin_cached = Perfil.objects.filter(
+            persona=user.persona, activo=True, rol__es_admin=True
+        ).exists()
+    return user._es_admin_cached
 
 
 def sedes_permitidas(user):

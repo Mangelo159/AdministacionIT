@@ -142,6 +142,14 @@ urlpatterns = [
     path('software/<int:pk>/toggle/', views.software_toggle, name='software_toggle'),
     path('software/<int:pk>/eliminar/', views.software_delete, name='software_eliminar'),
 
+    # Grupos de Programas
+    path('grupos-programas/', views.GrupoProgramasListView.as_view(), name='grupo_programas_lista'),
+    path('grupos-programas/nuevo/', views.GrupoProgramasCreateView.as_view(), name='grupo_programas_crear'),
+    path('grupos-programas/<int:pk>/editar/', views.GrupoProgramasUpdateView.as_view(), name='grupo_programas_editar'),
+    path('grupos-programas/<int:pk>/toggle/', views.grupo_programas_toggle, name='grupo_programas_toggle'),
+    path('grupos-programas/<int:pk>/eliminar/', views.grupo_programas_delete, name='grupo_programas_eliminar'),
+    path('grupos-programas/<int:pk>/software-json/', views.grupo_programas_software_json, name='grupo_programas_software_json'),
+
     # Vías de reporte
     path('soporte/vias-reporte/', views.ViaReporteListView.as_view(), name='via_reporte_lista'),
     path('soporte/vias-reporte/nueva/', views.ViaReporteCreateView.as_view(), name='via_reporte_crear'),
