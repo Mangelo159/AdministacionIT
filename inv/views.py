@@ -6,7 +6,7 @@ from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.views import View
-from django.views.generic import ListView, CreateView, UpdateView, DetailView
+from django.views.generic import ListView, CreateView, UpdateView
 from django.db import IntegrityError
 from django.db.models import Prefetch
 from django.urls import reverse_lazy, reverse, NoReverseMatch
@@ -1274,6 +1274,8 @@ class EquipoSubgrupoView(LoginRequiredMixin, View):
                 ],
                 'sw': [
                     {
+                        'id': i.pk,
+                        'equipo_id': eq.pk,
                         'software': i.software_id,
                         'software_nombre': i.software.nombre if i.software else '',
                         'version': i.version or '',
@@ -1344,31 +1346,12 @@ class EquipoSubgrupoView(LoginRequiredMixin, View):
         return render(request, self.template_name, self._ctx(request, subgrupo, form, modal_open=True))
 
 
-class EquipoDetailView(LoginRequiredMixin, DetailView):
-    model = Equipo
-    context_object_name = 'equipo'
-    template_name = 'inv/inventario/equipo_detalle.html'
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        equipo = self.object
-        ctx['componentes'] = equipo.componentes.select_related(
-            'modelo__tipo', 'modelo__marca'
-        ).order_by('id')
-        ctx['perifericos'] = equipo.perifericos.select_related('tipo', 'marca').order_by('id')
-        ctx['software_instalado'] = equipo.software_instalado.select_related('software').order_by('id')
-        ctx['tipos_componente'] = TipoComponente.objects.filter(activo=True)
-        ctx['tipos_periferico'] = TipoPeriferico.objects.filter(activo=True)
-        ctx['marcas'] = Marca.objects.filter(activo=True)
-        ctx['software_catalog'] = Software.objects.filter(activo=True)
-        ctx['today'] = date.today()
+class EquipoDetailView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        equipo = get_object_or_404(Equipo, pk=pk)
         if equipo.subgrupo_id:
-            ctx['dispositivos'] = Dispositivo.objects.filter(
-                subgrupo=equipo.subgrupo
-            ).select_related('tipo', 'marca').order_by('id')
-        else:
-            ctx['dispositivos'] = Dispositivo.objects.none()
-        return ctx
+            return redirect('inv:equipo_lista_subgrupo', subgrupo_pk=equipo.subgrupo_id)
+        return redirect('inv:equipo_lista')
 
 
 class EquipoCreateView(LoginRequiredMixin, CreateView):
@@ -1377,7 +1360,9 @@ class EquipoCreateView(LoginRequiredMixin, CreateView):
     template_name = 'inv/inventario/equipo_form.html'
 
     def get_success_url(self):
-        return reverse('inv:equipo_detalle', kwargs={'pk': self.object.pk})
+        if self.object.subgrupo_id:
+            return reverse('inv:equipo_lista_subgrupo', kwargs={'subgrupo_pk': self.object.subgrupo_id})
+        return reverse('inv:equipo_lista')
 
     def form_valid(self, form):
         messages.success(self.request, 'Equipo creado.')
@@ -1404,7 +1389,9 @@ class EquipoUpdateView(LoginRequiredMixin, UpdateView):
         next_url = self.request.POST.get('next') or self.request.GET.get('next')
         if next_url and next_url.startswith('/'):
             return next_url
-        return reverse('inv:equipo_detalle', kwargs={'pk': self.object.pk})
+        if self.object.subgrupo_id:
+            return reverse('inv:equipo_lista_subgrupo', kwargs={'subgrupo_pk': self.object.subgrupo_id})
+        return reverse('inv:equipo_lista')
 
     def form_valid(self, form):
         messages.success(self.request, 'Equipo actualizado.')
@@ -1413,7 +1400,10 @@ class EquipoUpdateView(LoginRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['titulo'] = f'Editar Equipo — {self.object.codigo}'
-        ctx['volver_url'] = reverse('inv:equipo_detalle', kwargs={'pk': self.object.pk})
+        if self.object.subgrupo_id:
+            ctx['volver_url'] = reverse('inv:equipo_lista_subgrupo', kwargs={'subgrupo_pk': self.object.subgrupo_id})
+        else:
+            ctx['volver_url'] = reverse('inv:equipo_lista')
         form = ctx.get('form')
         if form and form.is_bound:
             grupo_id = form.data.get('grupo')
@@ -1727,6 +1717,16 @@ def dispositivo_delete(request, pk):
 
 # ── COMPONENTE ────────────────────────────────────────────────────────────────
 
+def _redirect_equipo(request, equipo_pk):
+    next_url = request.POST.get('next', '')
+    if next_url and next_url.startswith('/'):
+        return redirect(next_url)
+    equipo = Equipo.objects.filter(pk=equipo_pk).first()
+    if equipo and equipo.subgrupo_id:
+        return redirect('inv:equipo_lista_subgrupo', subgrupo_pk=equipo.subgrupo_id)
+    return redirect('inv:equipo_lista')
+
+
 @login_required
 @require_POST
 def componente_create(request, equipo_pk):
@@ -1739,7 +1739,7 @@ def componente_create(request, equipo_pk):
         messages.success(request, 'Componente agregado.')
     else:
         messages.error(request, 'Error al guardar el componente. Verifica los campos.')
-    return redirect('inv:equipo_detalle', pk=equipo_pk)
+    return _redirect_equipo(request, equipo_pk)
 
 
 @login_required
@@ -1752,7 +1752,7 @@ def componente_update(request, equipo_pk, pk):
         messages.success(request, 'Componente actualizado.')
     else:
         messages.error(request, 'Error al actualizar el componente.')
-    return redirect('inv:equipo_detalle', pk=equipo_pk)
+    return _redirect_equipo(request, equipo_pk)
 
 
 @login_required
@@ -1764,7 +1764,7 @@ def componente_delete(request, equipo_pk, pk):
     componente = get_object_or_404(Componente, pk=pk, equipo_id=equipo_pk)
     componente.delete()
     messages.success(request, 'Componente eliminado.')
-    return redirect('inv:equipo_detalle', pk=equipo_pk)
+    return _redirect_equipo(request, equipo_pk)
 
 
 # ── PERIFÉRICO ────────────────────────────────────────────────────────────────
@@ -1781,7 +1781,7 @@ def periferico_create(request, equipo_pk):
         messages.success(request, 'Periférico agregado.')
     else:
         messages.error(request, 'Error al guardar el periférico. Verifica los campos.')
-    return redirect('inv:equipo_detalle', pk=equipo_pk)
+    return _redirect_equipo(request, equipo_pk)
 
 
 @login_required
@@ -1794,7 +1794,7 @@ def periferico_update(request, equipo_pk, pk):
         messages.success(request, 'Periférico actualizado.')
     else:
         messages.error(request, 'Error al actualizar el periférico.')
-    return redirect('inv:equipo_detalle', pk=equipo_pk)
+    return _redirect_equipo(request, equipo_pk)
 
 
 @login_required
@@ -1806,7 +1806,7 @@ def periferico_delete(request, equipo_pk, pk):
     periferico = get_object_or_404(Periferico, pk=pk, equipo_id=equipo_pk)
     periferico.delete()
     messages.success(request, 'Periférico eliminado.')
-    return redirect('inv:equipo_detalle', pk=equipo_pk)
+    return _redirect_equipo(request, equipo_pk)
 
 
 # ── SOFTWARE INSTALADO ────────────────────────────────────────────────────────
@@ -1826,7 +1826,7 @@ def instalacion_create(request, equipo_pk):
             messages.error(request, 'Este software ya está registrado en el equipo.')
     else:
         messages.error(request, 'Error al guardar la instalación. Verifica los campos.')
-    return redirect('inv:equipo_detalle', pk=equipo_pk)
+    return _redirect_equipo(request, equipo_pk)
 
 
 @login_required
@@ -1839,7 +1839,7 @@ def instalacion_update(request, equipo_pk, pk):
         messages.success(request, 'Instalación actualizada.')
     else:
         messages.error(request, 'Error al actualizar la instalación.')
-    return redirect('inv:equipo_detalle', pk=equipo_pk)
+    return _redirect_equipo(request, equipo_pk)
 
 
 @login_required
@@ -1851,7 +1851,7 @@ def instalacion_delete(request, equipo_pk, pk):
     instalacion = get_object_or_404(InstalacionSoftware, pk=pk, equipo_id=equipo_pk)
     instalacion.delete()
     messages.success(request, 'Software eliminado.')
-    return redirect('inv:equipo_detalle', pk=equipo_pk)
+    return _redirect_equipo(request, equipo_pk)
 
 
 # ── CAMBIAR MI CONTRASEÑA ─────────────────────────────────────────────────────

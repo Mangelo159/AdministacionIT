@@ -5,8 +5,10 @@
 
 {% block extra_js %}
 <script>
-window._MCURL   = "{% url 'inv:modelos_componente_json' %}";
-window._GPSWURL = "{% url 'inv:grupo_programas_software_json' 0 %}";
+window._MCURL        = "{% url 'inv:modelos_componente_json' %}";
+window._GPSWURL      = "{% url 'inv:grupo_programas_software_json' 0 %}";
+window._SW_EDIT_BASE = "{% url 'inv:instalacion_editar' 111111 222222 %}";
+window._SW_DEL_BASE  = "{% url 'inv:instalacion_eliminar' 111111 222222 %}";
 
 document.addEventListener('alpine:init', () => {
   Alpine.data('sgEquipos', (modalOpen) => ({
@@ -178,6 +180,23 @@ document.addEventListener('alpine:init', () => {
     detailTab: 'componentes',
     get detailEq() { return this.detailId ? (this.eqData[this.detailId] || null) : null; },
     openDetail(id) { this.detailId = id; this.detailTab = 'componentes'; this.detailOpen = true; },
+
+    /* ── Modal editar instalación software ────────────────── */
+    editInstOpen: false, editInstUrl: '',
+    editInstSwId: '', editInstSoftware: '', editInstVersion: '', editInstFechaInst: '', editInstFechaVenc: '', editInstObs: '',
+    openEditInst(s) {
+      this.editInstUrl      = window._SW_EDIT_BASE.replace('111111', s.equipo_id).replace('222222', s.id);
+      this.editInstSwId     = s.software;
+      this.editInstSoftware = s.software_nombre;
+      this.editInstVersion  = s.version;
+      this.editInstFechaInst = s.fecha_instalacion;
+      this.editInstFechaVenc = s.fecha_vencimiento;
+      this.editInstObs      = s.observaciones;
+      this.editInstOpen = true;
+    },
+
+    /* ── Modal eliminar instalación software ───────────────── */
+    delInstOpen: false, delInstNombre: '', delInstUrl: '',
 
     /* ── Panel Software (vista principal) ──────────────────── */
     allSw: [],
@@ -816,6 +835,96 @@ document.addEventListener('alpine:init', () => {
     </div>
   </div>
 
+  <!-- MODAL: EDITAR SOFTWARE INSTALADO -->
+  <div x-show="editInstOpen"
+       x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="editInstOpen = false"></div>
+    <div x-show="editInstOpen"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+         class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden z-10">
+      <div class="bg-[#C8D9E6] px-6 py-4 border-b border-[#b0cad9] flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 bg-[#2F4156] rounded-lg flex items-center justify-center shrink-0"><i class="bi bi-pencil-square text-[#C8D9E6] text-xs"></i></div>
+          <div>
+            <h2 class="text-sm font-bold text-[#2F4156]">Editar Software Instalado</h2>
+            <p class="text-xs text-[#2F4156]/70" x-text="editInstSoftware"></p>
+          </div>
+        </div>
+        <button @click="editInstOpen = false" class="p-1 rounded-lg text-[#2F4156]/50 hover:text-[#2F4156] hover:bg-[#2F4156]/10 transition-colors"><i class="bi bi-x-lg text-sm"></i></button>
+      </div>
+      <form method="post" :action="editInstUrl" class="px-6 py-5">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <input type="hidden" name="software" x-bind:value="editInstSwId">
+        <div class="mb-3">
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Versión</label>
+          <input type="text" name="version" x-model="editInstVersion" placeholder="Ej: 2024.1"
+                 class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2F4156]">
+        </div>
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">F. Instalación</label>
+            <input type="date" name="fecha_instalacion" x-model="editInstFechaInst"
+                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2F4156]">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">F. Vencimiento</label>
+            <input type="date" name="fecha_vencimiento" x-model="editInstFechaVenc"
+                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2F4156]">
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Observaciones</label>
+          <textarea name="observaciones" x-model="editInstObs" rows="2"
+                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2F4156] resize-none"></textarea>
+        </div>
+        <div class="flex items-center gap-2 pt-4 border-t border-slate-100">
+          <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 bg-[#2F4156] text-white text-sm font-medium rounded-lg hover:bg-[#3a5068] transition-colors shadow-sm"><i class="bi bi-check-lg"></i>Guardar</button>
+          <button type="button" @click="editInstOpen = false" class="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors"><i class="bi bi-x-lg"></i>Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ELIMINAR SOFTWARE INSTALADO -->
+  <div x-show="delInstOpen"
+       x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display:none">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="delInstOpen = false"></div>
+    <div x-show="delInstOpen"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+         class="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden z-10">
+      <div class="bg-red-50 px-6 py-4 border-b border-red-100 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 bg-red-500 rounded-lg flex items-center justify-center shrink-0"><i class="bi bi-trash-fill text-white text-xs"></i></div>
+          <h2 class="text-sm font-bold text-red-700">Eliminar Software</h2>
+        </div>
+        <button @click="delInstOpen = false" class="p-1 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-100 transition-colors"><i class="bi bi-x-lg text-sm"></i></button>
+      </div>
+      <div class="px-6 py-5">
+        <p class="text-sm text-slate-600 mb-1">¿Eliminar la instalación de:</p>
+        <p class="text-sm font-semibold text-slate-800 mb-4" x-text='"«" + delInstNombre + "»"'></p>
+        <form method="post" :action="delInstUrl" class="flex items-center gap-2 pt-4 border-t border-slate-100">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors shadow-sm"><i class="bi bi-trash"></i>Eliminar</button>
+          <button type="button" @click="delInstOpen = false" class="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors"><i class="bi bi-x-lg"></i>Cancelar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: ELIMINAR EQUIPO -->
   <div x-show="deleteOpen"
        x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
@@ -1280,7 +1389,6 @@ document.addEventListener('alpine:init', () => {
               {% endif %}
             </td>
             <td class="px-4 py-3">
-              {% if puede_editar or puede_eliminar %}
               <div x-data="{ open: false, top: 0, right: 0 }" class="flex justify-end">
                 <button @click.stop="const r=$el.getBoundingClientRect(); top=r.bottom+4; right=window.innerWidth-r.right; open=!open"
                         class="p-1.5 rounded-lg hover:bg-[#C8D9E6]/50 text-[#2F4156]/60 hover:text-[#2F4156] transition-colors">
@@ -1330,7 +1438,6 @@ document.addEventListener('alpine:init', () => {
                   </div>
                 </template>
               </div>
-              {% endif %}
             </td>
           </tr>
           {% empty %}
@@ -1479,12 +1586,13 @@ document.addEventListener('alpine:init', () => {
             <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Versión</th>
             <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">F. Vencimiento</th>
             <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Descripción</th>
+            <th class="px-4 py-3 w-10"></th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
           <template x-if="allSw.length === 0">
             <tr>
-              <td colspan="5" class="px-4 py-12 text-center">
+              <td colspan="6" class="px-4 py-12 text-center">
                 <i class="bi bi-disc text-3xl text-slate-300 block mb-2"></i>
                 <span class="text-sm text-slate-400">No hay software registrado en este subgrupo.</span>
               </td>
@@ -1492,7 +1600,7 @@ document.addEventListener('alpine:init', () => {
           </template>
           <template x-if="allSw.length > 0 && filteredSw.length === 0">
             <tr>
-              <td colspan="5" class="px-4 py-8 text-center text-sm text-slate-400">Sin resultados para la búsqueda.</td>
+              <td colspan="6" class="px-4 py-8 text-center text-sm text-slate-400">Sin resultados para la búsqueda.</td>
             </tr>
           </template>
           <template x-for="(s, i) in pagedSw" :key="i">
@@ -1511,6 +1619,35 @@ document.addEventListener('alpine:init', () => {
                 </template>
               </td>
               <td class="px-4 py-3 text-sm text-slate-500 max-w-xs truncate" :title="s.observaciones" x-text="s.observaciones || '—'"></td>
+              <td class="px-4 py-3">
+                <div x-data="{ open: false, top: 0, right: 0 }" class="flex justify-end">
+                  <button @click.stop="const r=$el.getBoundingClientRect(); top=r.bottom+4; right=window.innerWidth-r.right; open=!open"
+                          class="p-1.5 rounded-lg hover:bg-[#C8D9E6]/50 text-[#2F4156]/60 hover:text-[#2F4156] transition-colors">
+                    <i class="bi bi-three-dots-vertical text-sm"></i>
+                  </button>
+                  <template x-teleport="body">
+                    <div x-show="open"
+                         x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95"
+                         x-transition:enter-end="opacity-100 scale-100" x-transition:leave="transition ease-in duration-75"
+                         x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+                         @click.outside="open = false"
+                         :style="`position:fixed;top:${top}px;right:${right}px`"
+                         class="w-44 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-[9999] origin-top-right">
+                      <button type="button"
+                              @click="open=false; openEditInst(s)"
+                              class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:text-[#2F4156] hover:bg-[#C8D9E6]/25 transition-colors">
+                        <i class="bi bi-pencil text-xs text-slate-400"></i>Editar
+                      </button>
+                      <div class="mx-3 my-1 border-t border-slate-100"></div>
+                      <button type="button"
+                              @click="open=false; delInstNombre=s.software_nombre; delInstUrl=window._SW_DEL_BASE.replace('111111', s.equipo_id).replace('222222', s.id); delInstOpen=true"
+                              class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                        <i class="bi bi-trash text-xs text-red-400"></i>Eliminar
+                      </button>
+                    </div>
+                  </template>
+                </div>
+              </td>
             </tr>
           </template>
         </tbody>
