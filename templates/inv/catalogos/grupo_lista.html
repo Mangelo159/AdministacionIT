@@ -49,11 +49,13 @@
                 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
         <i class="bi bi-arrow-left text-xs"></i>Atrás
       </a>
+      {% if puede_agregar %}
       <button @click="modalAgregarGrupo = true; addGrupoSede = ''"
               class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2F4156] text-white text-sm font-medium
                      rounded-lg hover:bg-[#3a5068] transition-colors shadow-sm">
         <i class="bi bi-plus-lg"></i>Agregar Grupo
       </button>
+      {% endif %}
     </div>
   </div>
 
@@ -357,11 +359,13 @@
           ({{ sd.grupos|length }} grupo{{ sd.grupos|length|pluralize }})
         </span>
       </div>
+      {% if puede_agregar %}
       <button @click="modalAgregarGrupo = true; addGrupoSede = '{{ sd.sede.pk }}'"
               class="inline-flex items-center gap-1 text-xs text-[#C8D9E6] hover:text-white hover:bg-white/10
                      rounded-lg px-2 py-1.5 transition-colors">
         <i class="bi bi-plus-lg text-xs"></i>Nuevo grupo
       </button>
+      {% endif %}
     </div>
 
     {% if sd.grupos %}
@@ -407,6 +411,7 @@
           {% endif %}
 
           <!-- 3 puntos -->
+          {% if puede_editar or puede_eliminar %}
           <div x-data="{ open: false, top: 0, right: 0 }"
                data-nombre="{{ grupo.nombre }}"
                data-sede="{{ grupo.sede_id }}"
@@ -427,6 +432,7 @@
                    :style="`position:fixed;top:${top}px;right:${right}px`"
                    class="w-52 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-[9999] origin-top-right">
 
+                {% if puede_editar %}
                 <button type="button"
                         @click="open=false; $dispatch('open-grupo-edit', {
                           nombre: $root.dataset.nombre,
@@ -437,7 +443,9 @@
                         class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:text-[#2F4156] hover:bg-[#C8D9E6]/25 transition-colors">
                   <i class="bi bi-pencil text-xs text-slate-400"></i>Editar grupo
                 </button>
+                {% endif %}
 
+                {% if puede_agregar %}
                 <button type="button"
                         @click="open=false; $dispatch('open-subgrupo-add', {
                           grupoId: $root.dataset.grupoId
@@ -445,9 +453,10 @@
                         class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:text-[#2F4156] hover:bg-[#C8D9E6]/25 transition-colors">
                   <i class="bi bi-folder-plus text-xs text-slate-400"></i>Agregar subgrupo
                 </button>
+                {% endif %}
 
+                {% if puede_editar %}
                 <div class="mx-3 my-1 border-t border-slate-100"></div>
-
                 <form method="post" action="{% url 'inv:grupo_toggle' grupo.pk %}">
                   {% csrf_token %}
                   <button type="submit"
@@ -457,9 +466,10 @@
                     {% if grupo.activo %}Desactivar{% else %}Activar{% endif %}
                   </button>
                 </form>
+                {% endif %}
 
+                {% if puede_eliminar %}
                 <div class="mx-3 my-1 border-t border-slate-100"></div>
-
                 <button type="button"
                         @click="open=false; $dispatch('open-delete', {
                           nombre: $root.dataset.nombre,
@@ -468,9 +478,11 @@
                         class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">
                   <i class="bi bi-trash text-xs text-red-400"></i>Eliminar grupo
                 </button>
+                {% endif %}
               </div>
             </template>
           </div>
+          {% endif %}
         </div>
 
         <!-- Subgrupos expandibles -->
@@ -501,6 +513,7 @@
             {% endif %}
 
             <!-- 3 puntos subgrupo -->
+            {% if puede_editar or puede_eliminar %}
             <div x-data="{ open: false, top: 0, right: 0 }"
                  data-nombre="{{ subgrupo.nombre }}"
                  data-grupo-id="{{ grupo.pk }}"
@@ -520,6 +533,7 @@
                      :style="`position:fixed;top:${top}px;right:${right}px`"
                      class="w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-[9999] origin-top-right">
 
+                  {% if puede_editar %}
                   <button type="button"
                           @click="open=false; $dispatch('open-subgrupo-edit', {
                             nombre: $root.dataset.nombre,
@@ -542,9 +556,10 @@
                       {% if subgrupo.activo %}Desactivar{% else %}Activar{% endif %}
                     </button>
                   </form>
+                  {% endif %}
 
+                  {% if puede_eliminar %}
                   <div class="mx-3 my-1 border-t border-slate-100"></div>
-
                   <button type="button"
                           @click="open=false; $dispatch('open-delete', {
                             nombre: $root.dataset.nombre,
@@ -553,9 +568,11 @@
                           class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">
                     <i class="bi bi-trash text-xs text-red-400"></i>Eliminar
                   </button>
+                  {% endif %}
                 </div>
               </template>
             </div>
+            {% endif %}
           </div>
           {% endfor %}
         </div>
@@ -571,10 +588,12 @@
       <p class="text-sm text-slate-400">
         {% if q %}Sin resultados para "<strong class="text-slate-600">{{ q }}</strong>"{% else %}Sin grupos registrados{% endif %}
       </p>
+      {% if puede_agregar %}
       <button @click="modalAgregarGrupo = true; addGrupoSede = '{{ sd.sede.pk }}'"
               class="mt-3 inline-flex items-center gap-1 text-xs text-[#2F4156] hover:underline">
         <i class="bi bi-plus-lg"></i>Agregar primer grupo
       </button>
+      {% endif %}
     </div>
     {% endif %}
 

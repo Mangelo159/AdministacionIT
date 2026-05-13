@@ -39,10 +39,12 @@
          class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
         <i class="bi bi-arrow-left text-xs"></i>Atrás
       </a>
+      {% if puede_agregar %}
       <button @click="modalAgregar = true"
               class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2F4156] text-white text-sm font-medium rounded-lg hover:bg-[#3a5068] transition-colors shadow-sm">
         <i class="bi bi-plus-lg"></i>Agregar Perfil
       </button>
+      {% endif %}
     </div>
   </div>
 
@@ -245,6 +247,7 @@
               {% endif %}
             </td>
             <td class="px-4 py-3">
+              {% if puede_editar or puede_eliminar %}
               <div x-data="{ open: false, top: 0, right: 0 }"
                    data-persona="{{ obj.persona_id }}"
                    data-rol="{{ obj.rol_id }}"
@@ -265,6 +268,7 @@
                        @click.outside="open = false"
                        :style="`position:fixed;top:${top}px;right:${right}px`"
                        class="w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-[9999] origin-top-right">
+                    {% if puede_editar %}
                     <button type="button"
                             @click="open=false; $dispatch('open-perfil-edit', {persona: $root.dataset.persona, rol: $root.dataset.rol, activo: $root.dataset.activo==='true', url: $root.dataset.editUrl, label: $root.dataset.label})"
                             class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:text-[#2F4156] hover:bg-[#C8D9E6]/25 transition-colors">
@@ -278,15 +282,21 @@
                         {% if obj.activo %}Desactivar{% else %}Activar{% endif %}
                       </button>
                     </form>
+                    {% endif %}
+                    {% if puede_editar and puede_eliminar %}
                     <div class="mx-3 my-1 border-t border-slate-100"></div>
+                    {% endif %}
+                    {% if puede_eliminar %}
                     <button type="button"
                             @click="open=false; $dispatch('open-perfil-delete', {nombre: $root.dataset.label, url: $root.dataset.delUrl})"
                             class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">
                       <i class="bi bi-trash text-xs text-red-400"></i>Eliminar
                     </button>
+                    {% endif %}
                   </div>
                 </template>
               </div>
+              {% endif %}
             </td>
           </tr>
           {% empty %}

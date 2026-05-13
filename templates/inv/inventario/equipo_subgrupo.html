@@ -918,10 +918,12 @@ document.addEventListener('alpine:init', () => {
   <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-5">
     <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
       <p class="text-sm font-semibold text-slate-700">Equipos</p>
+      {% if puede_agregar %}
       <button @click="createOpen = true; tab='equipo'; componentes=[]; perifericos=[]; swList=[]; errCodigo=false; errTipo=false"
               class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2F4156] text-white text-xs font-medium rounded-lg hover:bg-[#3a5068] transition-colors shadow-sm">
         <i class="bi bi-plus-lg"></i>Nuevo equipo
       </button>
+      {% endif %}
     </div>
     <div class="overflow-x-auto">
       <table class="min-w-full">
@@ -950,6 +952,7 @@ document.addEventListener('alpine:init', () => {
               {% endif %}
             </td>
             <td class="px-4 py-3">
+              {% if puede_editar or puede_eliminar %}
               <div x-data="{ open: false, top: 0, right: 0 }" class="flex justify-end">
                 <button @click.stop="const r=$el.getBoundingClientRect(); top=r.bottom+4; right=window.innerWidth-r.right; open=!open"
                         class="p-1.5 rounded-lg hover:bg-[#C8D9E6]/50 text-[#2F4156]/60 hover:text-[#2F4156] transition-colors">
@@ -963,6 +966,7 @@ document.addEventListener('alpine:init', () => {
                        @click.outside="open = false"
                        :style="`position:fixed;top:${top}px;right:${right}px`"
                        class="w-44 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-[9999] origin-top-right">
+                    {% if puede_editar %}
                     <button type="button"
                             @click="open=false; openEditFull({{ eq.pk }}, '{% url 'inv:equipo_editar_completo' eq.pk %}')"
                             class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:text-[#2F4156] hover:bg-[#C8D9E6]/25 transition-colors">
@@ -978,15 +982,21 @@ document.addEventListener('alpine:init', () => {
                         {% if eq.activo %}Desactivar{% else %}Activar{% endif %}
                       </button>
                     </form>
+                    {% endif %}
+                    {% if puede_editar and puede_eliminar %}
                     <div class="mx-3 my-1 border-t border-slate-100"></div>
+                    {% endif %}
+                    {% if puede_eliminar %}
                     <button type="button"
                             @click="open=false; deleteNombre='{{ eq.codigo|escapejs }}'; deleteUrl='{% url 'inv:equipo_eliminar' eq.pk %}'; deleteOpen=true"
                             class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">
                       <i class="bi bi-trash text-xs text-red-400"></i>Eliminar
                     </button>
+                    {% endif %}
                   </div>
                 </template>
               </div>
+              {% endif %}
             </td>
           </tr>
           {% empty %}
@@ -1006,10 +1016,12 @@ document.addEventListener('alpine:init', () => {
   <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
     <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
       <p class="text-sm font-semibold text-slate-700">Dispositivos</p>
+      {% if puede_agregar %}
       <button @click="createDispOpen = true"
               class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2F4156] text-white text-xs font-medium rounded-lg hover:bg-[#3a5068] transition-colors shadow-sm">
         <i class="bi bi-plus-lg"></i>Nuevo dispositivo
       </button>
+      {% endif %}
     </div>
     <div class="overflow-x-auto">
       <table class="min-w-full">
@@ -1038,6 +1050,7 @@ document.addEventListener('alpine:init', () => {
               {% endif %}
             </td>
             <td class="px-4 py-3">
+              {% if puede_editar or puede_eliminar %}
               <div x-data="{ open: false, top: 0, right: 0 }" class="flex justify-end">
                 <button @click.stop="const r=$el.getBoundingClientRect(); top=r.bottom+4; right=window.innerWidth-r.right; open=!open"
                         class="p-1.5 rounded-lg hover:bg-[#C8D9E6]/50 text-[#2F4156]/60 hover:text-[#2F4156] transition-colors">
@@ -1051,6 +1064,7 @@ document.addEventListener('alpine:init', () => {
                        @click.outside="open = false"
                        :style="`position:fixed;top:${top}px;right:${right}px`"
                        class="w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-[9999] origin-top-right">
+                    {% if puede_editar %}
                     <button type="button"
                             @click="open=false;
                               editDispTipo='{{ disp.tipo_id }}';
@@ -1074,15 +1088,21 @@ document.addEventListener('alpine:init', () => {
                         {% if disp.activo %}Desactivar{% else %}Activar{% endif %}
                       </button>
                     </form>
+                    {% endif %}
+                    {% if puede_editar and puede_eliminar %}
                     <div class="mx-3 my-1 border-t border-slate-100"></div>
+                    {% endif %}
+                    {% if puede_eliminar %}
                     <button type="button"
                             @click="open=false; delDispNombre='{{ disp.tipo.nombre|escapejs }}'; delDispUrl='{% url 'inv:dispositivo_eliminar' disp.pk %}'; delDispOpen=true"
                             class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">
                       <i class="bi bi-trash text-xs text-red-400"></i>Eliminar
                     </button>
+                    {% endif %}
                   </div>
                 </template>
               </div>
+              {% endif %}
             </td>
           </tr>
           {% empty %}

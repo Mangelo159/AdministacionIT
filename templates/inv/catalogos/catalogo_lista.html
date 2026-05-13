@@ -39,11 +39,13 @@
                 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
         <i class="bi bi-arrow-left text-xs"></i>Atrás
       </a>
+      {% if puede_agregar %}
       <button @click="modalAgregar = true"
               class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2F4156] text-white text-sm font-medium
                      rounded-lg hover:bg-[#3a5068] transition-colors shadow-sm">
         <i class="bi bi-plus-lg"></i>Agregar
       </button>
+      {% endif %}
     </div>
   </div>
 
@@ -305,6 +307,7 @@
 
             <!-- Menú 3 puntos -->
             <td class="px-4 py-3">
+              {% if puede_editar or puede_eliminar %}
               <div x-data="{ open: false, top: 0, right: 0 }"
                    data-nombre="{{ obj.nombre }}"
                    data-codigo="{{ obj.codigo|default:'' }}"
@@ -329,6 +332,7 @@
                        :style="`position:fixed;top:${top}px;right:${right}px`"
                        class="w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-[9999] origin-top-right">
 
+                    {% if puede_editar %}
                     <!-- Editar -->
                     <button type="button"
                             @click="open=false; $dispatch('open-catalogo-edit', {
@@ -354,9 +358,13 @@
                         {% if obj.activo %}Desactivar{% else %}Activar{% endif %}
                       </button>
                     </form>
+                    {% endif %}
 
+                    {% if puede_editar and puede_eliminar %}
                     <div class="mx-3 my-1 border-t border-slate-100"></div>
+                    {% endif %}
 
+                    {% if puede_eliminar %}
                     <!-- Eliminar -->
                     <button type="button"
                             @click="open=false; $dispatch('open-catalogo-delete', {
@@ -367,10 +375,12 @@
                       <i class="bi bi-trash text-xs text-red-400"></i>
                       Eliminar
                     </button>
+                    {% endif %}
 
                   </div>
                 </template>
               </div>
+              {% endif %}
             </td>
           </tr>
           {% empty %}

@@ -23,7 +23,7 @@ class Rol(models.Model):
         verbose_name='Es administrador',
         help_text='Los usuarios con este rol pueden ver todos los registros sin filtro de sede.',
     )
-    group = models.OneToOneField(Group, on_delete=models.SET_NULL,null=True, blank=True, related_name='rol',)
+    group = models.OneToOneField(Group, on_delete=models.SET_NULL, null=True, blank=True, related_name='rol')
 
     class Meta:
         verbose_name = 'Rol'
@@ -32,6 +32,15 @@ class Rol(models.Model):
 
     def __str__(self):
         return self.nombre
+
+    def save(self, *args, **kwargs):
+        if not self.group_id:
+            group, _ = Group.objects.get_or_create(name=self.nombre)
+            self.group = group
+        elif self.group.name != self.nombre:
+            self.group.name = self.nombre
+            self.group.save(update_fields=['name'])
+        super().save(*args, **kwargs)
 
 class Institucion(models.Model):
     nombre = models.CharField(max_length=150, unique=True)
@@ -128,6 +137,15 @@ class Perfil(models.Model):
 
     def __str__(self):
         return f'{self.persona.nombres_completos} - {self.rol.nombre}'
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        _sync_user_groups(self.persona)
+
+    def delete(self, *args, **kwargs):
+        persona = self.persona
+        super().delete(*args, **kwargs)
+        _sync_user_groups(persona)
 
 
 # ============================================================
@@ -405,6 +423,19 @@ class Dispositivo(models.Model):
 # ============================================================
 # HELPERS DE ACCESO POR SEDE
 # ============================================================
+
+def _sync_user_groups(persona):
+    """Sincroniza los Groups de Django del usuario según sus Perfiles activos."""
+    if not persona.user_id:
+        return
+    group_ids = (
+        Perfil.objects
+        .filter(persona=persona, activo=True)
+        .exclude(rol__group=None)
+        .values_list('rol__group_id', flat=True)
+    )
+    persona.user.groups.set(group_ids)
+
 
 def _es_admin_rol(user):
     """True si el usuario tiene al menos un Perfil activo con Rol marcado como es_admin."""

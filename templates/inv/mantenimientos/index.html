@@ -30,6 +30,7 @@
   </p>
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
 
+    {% if request.user.is_superuser %}
     <a href="{% url 'inv:institucion_lista' %}"
        class="group flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3
               hover:border-blue-300 hover:shadow-md hover:bg-blue-50/40 transition-all duration-200">
@@ -55,6 +56,7 @@
       </div>
       <i class="bi bi-chevron-right text-slate-300 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all text-xs shrink-0"></i>
     </a>
+    {% endif %}
 
     <a href="{% url 'inv:grupo_lista' %}"
        class="group flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3
@@ -73,6 +75,7 @@
 </div>
 
 <!-- ─── Usuarios y accesos ────────────────────────────── -->
+{% if request.user.is_superuser %}
 <div class="mb-6">
   <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-2.5 px-0.5">
     Usuarios y accesos
@@ -133,7 +136,7 @@
 
   </div>
 </div>
-
+{% endif %}
 
 <!-- ─── Soporte ────────────────────────────────────────── -->
 <div class="mb-6">

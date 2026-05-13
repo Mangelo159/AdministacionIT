@@ -37,6 +37,36 @@ def _sedes_ids(user):
     return []
 
 
+def _tiene_perm(user, perm):
+    """True si el usuario tiene el permiso dado. Superuser/staff/rol-admin siempre tienen acceso."""
+    return user.is_superuser or user.is_staff or _es_admin_rol(user) or user.has_perm(perm)
+
+
+def _sin_permiso(request, perm, redirect_url):
+    """Si el usuario NO tiene el permiso devuelve un redirect con mensaje. Si sí tiene, devuelve None."""
+    if _tiene_perm(request.user, perm):
+        return None
+    messages.error(request, 'No tienes permiso para realizar esta acción.')
+    return redirect(redirect_url)
+
+
+def _solo_superusuario(request):
+    """Devuelve redirect si el usuario no es superusuario, None si sí lo es."""
+    if not request.user.is_superuser:
+        messages.error(request, 'Solo los superusuarios pueden acceder a esta sección.')
+        return redirect('inv:mantenimientos')
+    return None
+
+
+class _SuperuserMixin:
+    """Restringe acceso exclusivamente a superusuarios en vistas basadas en clase."""
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and not request.user.is_superuser:
+            messages.error(request, 'Solo los superusuarios pueden acceder a esta sección.')
+            return redirect('inv:mantenimientos')
+        return super().dispatch(request, *args, **kwargs)
+
+
 @login_required
 def mantenimientos(request):
     return render(request, 'inv/mantenimientos/index.html')
@@ -107,11 +137,26 @@ class _CatalogoList(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['q'] = self.request.GET.get('q', '')
+        al = self.model._meta.app_label
+        mn = self.model._meta.model_name
+        u = self.request.user
+        ctx['puede_agregar'] = _tiene_perm(u, f'{al}.add_{mn}')
+        ctx['puede_editar'] = _tiene_perm(u, f'{al}.change_{mn}')
+        ctx['puede_eliminar'] = _tiene_perm(u, f'{al}.delete_{mn}')
         return ctx
 
 
 class _CatalogoForm(LoginRequiredMixin):
     template_name = 'inv/catalogos/catalogo_form.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        al = self.model._meta.app_label
+        mn = self.model._meta.model_name
+        perm = f'{al}.add_{mn}' if not self.kwargs.get('pk') else f'{al}.change_{mn}'
+        if not _tiene_perm(request.user, perm):
+            messages.error(request, 'No tienes permiso para realizar esta acción.')
+            return redirect(self.success_url)
+        return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         accion = 'creado' if not form.instance.pk else 'actualizado'
@@ -159,6 +204,8 @@ class MarcaUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def marca_toggle(request, pk):
+    r = _sin_permiso(request, 'inv.change_marca', 'inv:marca_lista')
+    if r: return r
     obj = get_object_or_404(Marca, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -170,6 +217,8 @@ def marca_toggle(request, pk):
 @login_required
 @require_POST
 def marca_delete(request, pk):
+    r = _sin_permiso(request, 'inv.delete_marca', 'inv:marca_lista')
+    if r: return r
     obj = get_object_or_404(Marca, pk=pk)
     nombre = obj.nombre
     try:
@@ -214,6 +263,8 @@ class TipoEquipoUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def tipo_equipo_toggle(request, pk):
+    r = _sin_permiso(request, 'inv.change_tipoequipo', 'inv:tipo_equipo_lista')
+    if r: return r
     obj = get_object_or_404(TipoEquipo, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -225,6 +276,8 @@ def tipo_equipo_toggle(request, pk):
 @login_required
 @require_POST
 def tipo_equipo_delete(request, pk):
+    r = _sin_permiso(request, 'inv.delete_tipoequipo', 'inv:tipo_equipo_lista')
+    if r: return r
     obj = get_object_or_404(TipoEquipo, pk=pk)
     nombre = obj.nombre
     try:
@@ -269,6 +322,8 @@ class TipoPerifericoUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def tipo_periferico_toggle(request, pk):
+    r = _sin_permiso(request, 'inv.change_tipoperiferico', 'inv:tipo_periferico_lista')
+    if r: return r
     obj = get_object_or_404(TipoPeriferico, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -280,6 +335,8 @@ def tipo_periferico_toggle(request, pk):
 @login_required
 @require_POST
 def tipo_periferico_delete(request, pk):
+    r = _sin_permiso(request, 'inv.delete_tipoperiferico', 'inv:tipo_periferico_lista')
+    if r: return r
     obj = get_object_or_404(TipoPeriferico, pk=pk)
     nombre = obj.nombre
     try:
@@ -293,7 +350,7 @@ def tipo_periferico_delete(request, pk):
 
 # ── INSTITUCIÓN ──────────────────────────────────────────────────────────────
 
-class InstitucionListView(_CatalogoList):
+class InstitucionListView(_SuperuserMixin, _CatalogoList):
     model = Institucion
 
     def get_queryset(self):
@@ -316,13 +373,13 @@ class InstitucionListView(_CatalogoList):
         return ctx
 
 
-class InstitucionCreateView(_ModalForm, _CatalogoForm, CreateView):
+class InstitucionCreateView(_SuperuserMixin, _ModalForm, _CatalogoForm, CreateView):
     model = Institucion
     form_class = InstitucionForm
     success_url = reverse_lazy('inv:institucion_lista')
 
 
-class InstitucionUpdateView(_ModalForm, _CatalogoForm, UpdateView):
+class InstitucionUpdateView(_SuperuserMixin, _ModalForm, _CatalogoForm, UpdateView):
     model = Institucion
     form_class = InstitucionForm
     success_url = reverse_lazy('inv:institucion_lista')
@@ -331,6 +388,8 @@ class InstitucionUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def institucion_toggle(request, pk):
+    r = _solo_superusuario(request)
+    if r: return r
     obj = get_object_or_404(Institucion, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -341,6 +400,8 @@ def institucion_toggle(request, pk):
 @login_required
 @require_POST
 def institucion_delete(request, pk):
+    r = _solo_superusuario(request)
+    if r: return r
     obj = get_object_or_404(Institucion, pk=pk)
     nombre = obj.nombre
     try:
@@ -353,7 +414,7 @@ def institucion_delete(request, pk):
 
 # ── SEDE ──────────────────────────────────────────────────────────────────────
 
-class SedeListView(LoginRequiredMixin, ListView):
+class SedeListView(_SuperuserMixin, LoginRequiredMixin, ListView):
     model = Sede
     template_name = 'inv/catalogos/sede_lista.html'
     context_object_name = 'objetos'
@@ -378,16 +439,20 @@ class SedeListView(LoginRequiredMixin, ListView):
         if ids is not None:
             instituciones = instituciones.filter(sedes__id__in=ids).distinct()
         ctx['instituciones'] = instituciones
+        u = self.request.user
+        ctx['puede_agregar'] = _tiene_perm(u, 'inv.add_sede')
+        ctx['puede_editar']  = _tiene_perm(u, 'inv.change_sede')
+        ctx['puede_eliminar'] = _tiene_perm(u, 'inv.delete_sede')
         return ctx
 
 
-class SedeCreateView(_ModalForm, _CatalogoForm, CreateView):
+class SedeCreateView(_SuperuserMixin, _ModalForm, _CatalogoForm, CreateView):
     model = Sede
     form_class = SedeForm
     success_url = reverse_lazy('inv:sede_lista')
 
 
-class SedeUpdateView(_ModalForm, _CatalogoForm, UpdateView):
+class SedeUpdateView(_SuperuserMixin, _ModalForm, _CatalogoForm, UpdateView):
     model = Sede
     form_class = SedeForm
     success_url = reverse_lazy('inv:sede_lista')
@@ -396,6 +461,8 @@ class SedeUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def sede_toggle(request, pk):
+    r = _solo_superusuario(request)
+    if r: return r
     obj = get_object_or_404(Sede, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -406,6 +473,8 @@ def sede_toggle(request, pk):
 @login_required
 @require_POST
 def sede_delete(request, pk):
+    r = _solo_superusuario(request)
+    if r: return r
     obj = get_object_or_404(Sede, pk=pk)
     nombre = obj.nombre
     try:
@@ -448,10 +517,14 @@ class GrupoListView(LoginRequiredMixin, View):
             for sede in sedes_qs
         ]
 
+        u = request.user
         return render(request, self.template_name, {
             'sedes_data': sedes_data,
             'sedes': sedes_qs,
             'q': q,
+            'puede_agregar':  _tiene_perm(u, 'inv.add_grupo'),
+            'puede_editar':   _tiene_perm(u, 'inv.change_grupo'),
+            'puede_eliminar': _tiene_perm(u, 'inv.delete_grupo'),
         })
 
 
@@ -476,6 +549,8 @@ class GrupoUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def grupo_toggle(request, pk):
+    r = _sin_permiso(request, 'inv.change_grupo', 'inv:grupo_lista')
+    if r: return r
     obj = get_object_or_404(Grupo, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -486,6 +561,8 @@ def grupo_toggle(request, pk):
 @login_required
 @require_POST
 def grupo_delete(request, pk):
+    r = _sin_permiso(request, 'inv.delete_grupo', 'inv:grupo_lista')
+    if r: return r
     obj = get_object_or_404(Grupo, pk=pk)
     nombre = obj.nombre
     try:
@@ -517,6 +594,8 @@ class SubgrupoUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def subgrupo_toggle(request, pk):
+    r = _sin_permiso(request, 'inv.change_subgrupo', 'inv:grupo_lista')
+    if r: return r
     obj = get_object_or_404(Subgrupo, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -527,6 +606,8 @@ def subgrupo_toggle(request, pk):
 @login_required
 @require_POST
 def subgrupo_delete(request, pk):
+    r = _sin_permiso(request, 'inv.delete_subgrupo', 'inv:grupo_lista')
+    if r: return r
     obj = get_object_or_404(Subgrupo, pk=pk)
     nombre = obj.nombre
     try:
@@ -570,6 +651,8 @@ class TipoComponenteUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def tipo_componente_toggle(request, pk):
+    r = _sin_permiso(request, 'inv.change_tipocomponente', 'inv:tipo_componente_lista')
+    if r: return r
     obj = get_object_or_404(TipoComponente, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -581,6 +664,8 @@ def tipo_componente_toggle(request, pk):
 @login_required
 @require_POST
 def tipo_componente_delete(request, pk):
+    r = _sin_permiso(request, 'inv.delete_tipocomponente', 'inv:tipo_componente_lista')
+    if r: return r
     obj = get_object_or_404(TipoComponente, pk=pk)
     nombre = obj.nombre
     try:
@@ -594,7 +679,7 @@ def tipo_componente_delete(request, pk):
 
 # ── ROL ───────────────────────────────────────────────────────────────────────
 
-class RolListView(LoginRequiredMixin, ListView):
+class RolListView(_SuperuserMixin, LoginRequiredMixin, ListView):
     model = Rol
     template_name = 'inv/catalogos/rol_lista.html'
     context_object_name = 'objetos'
@@ -611,16 +696,20 @@ class RolListView(LoginRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         ctx['q'] = self.request.GET.get('q', '')
         ctx['url_eliminar'] = 'inv:rol_eliminar'
+        u = self.request.user
+        ctx['puede_agregar']  = _tiene_perm(u, 'inv.add_rol')
+        ctx['puede_editar']   = _tiene_perm(u, 'inv.change_rol')
+        ctx['puede_eliminar'] = _tiene_perm(u, 'inv.delete_rol')
         return ctx
 
 
-class RolCreateView(_ModalForm, _CatalogoForm, CreateView):
+class RolCreateView(_SuperuserMixin, _ModalForm, _CatalogoForm, CreateView):
     model = Rol
     form_class = RolForm
     success_url = reverse_lazy('inv:rol_lista')
 
 
-class RolUpdateView(_ModalForm, _CatalogoForm, UpdateView):
+class RolUpdateView(_SuperuserMixin, _ModalForm, _CatalogoForm, UpdateView):
     model = Rol
     form_class = RolForm
     success_url = reverse_lazy('inv:rol_lista')
@@ -629,6 +718,8 @@ class RolUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def rol_delete(request, pk):
+    r = _solo_superusuario(request)
+    if r: return r
     obj = get_object_or_404(Rol, pk=pk)
     nombre = obj.nombre
     try:
@@ -641,7 +732,7 @@ def rol_delete(request, pk):
 
 # ── PERSONA ───────────────────────────────────────────────────────────────────
 
-class PersonaListView(LoginRequiredMixin, ListView):
+class PersonaListView(_SuperuserMixin, LoginRequiredMixin, ListView):
     model = Persona
     template_name = 'inv/catalogos/persona_lista.html'
     context_object_name = 'objetos'
@@ -673,10 +764,14 @@ class PersonaListView(LoginRequiredMixin, ListView):
         ctx['instituciones'] = instituciones
         ctx['sedes'] = sedes_qs
         ctx['url_eliminar'] = 'inv:persona_eliminar'
+        u = self.request.user
+        ctx['puede_agregar']  = _tiene_perm(u, 'inv.add_persona')
+        ctx['puede_editar']   = _tiene_perm(u, 'inv.change_persona')
+        ctx['puede_eliminar'] = _tiene_perm(u, 'inv.delete_persona')
         return ctx
 
 
-class PersonaCreateView(_ModalForm, _CatalogoForm, CreateView):
+class PersonaCreateView(_SuperuserMixin, _ModalForm, _CatalogoForm, CreateView):
     model = Persona
     form_class = PersonaForm
     success_url = reverse_lazy('inv:persona_lista')
@@ -687,7 +782,7 @@ class PersonaCreateView(_ModalForm, _CatalogoForm, CreateView):
         return response
 
 
-class PersonaUpdateView(_ModalForm, _CatalogoForm, UpdateView):
+class PersonaUpdateView(_SuperuserMixin, _ModalForm, _CatalogoForm, UpdateView):
     model = Persona
     form_class = PersonaForm
     success_url = reverse_lazy('inv:persona_lista')
@@ -696,6 +791,8 @@ class PersonaUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def persona_toggle(request, pk):
+    r = _solo_superusuario(request)
+    if r: return r
     obj = get_object_or_404(Persona, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -706,6 +803,8 @@ def persona_toggle(request, pk):
 @login_required
 @require_POST
 def persona_cambiar_clave(request, pk):
+    r = _solo_superusuario(request)
+    if r: return r
     obj = get_object_or_404(Persona, pk=pk)
     clave1 = request.POST.get('clave1', '').strip()
     clave2 = request.POST.get('clave2', '').strip()
@@ -725,6 +824,8 @@ def persona_cambiar_clave(request, pk):
 @login_required
 @require_POST
 def persona_delete(request, pk):
+    r = _solo_superusuario(request)
+    if r: return r
     obj = get_object_or_404(Persona, pk=pk)
     nombre = obj.nombre
     try:
@@ -737,7 +838,7 @@ def persona_delete(request, pk):
 
 # ── PERFIL ────────────────────────────────────────────────────────────────────
 
-class PerfilListView(LoginRequiredMixin, ListView):
+class PerfilListView(_SuperuserMixin, LoginRequiredMixin, ListView):
     model = Perfil
     template_name = 'inv/catalogos/perfil_lista.html'
     context_object_name = 'objetos'
@@ -760,16 +861,20 @@ class PerfilListView(LoginRequiredMixin, ListView):
         ctx['personas'] = Persona.objects.filter(activo=True).order_by('apellido1', 'nombre')
         ctx['roles'] = Rol.objects.all().order_by('nombre')
         ctx['url_eliminar'] = 'inv:perfil_eliminar'
+        u = self.request.user
+        ctx['puede_agregar']  = _tiene_perm(u, 'inv.add_perfil')
+        ctx['puede_editar']   = _tiene_perm(u, 'inv.change_perfil')
+        ctx['puede_eliminar'] = _tiene_perm(u, 'inv.delete_perfil')
         return ctx
 
 
-class PerfilCreateView(_ModalForm, _CatalogoForm, CreateView):
+class PerfilCreateView(_SuperuserMixin, _ModalForm, _CatalogoForm, CreateView):
     model = Perfil
     form_class = PerfilForm
     success_url = reverse_lazy('inv:perfil_lista')
 
 
-class PerfilUpdateView(_ModalForm, _CatalogoForm, UpdateView):
+class PerfilUpdateView(_SuperuserMixin, _ModalForm, _CatalogoForm, UpdateView):
     model = Perfil
     form_class = PerfilForm
     success_url = reverse_lazy('inv:perfil_lista')
@@ -778,6 +883,8 @@ class PerfilUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def perfil_toggle(request, pk):
+    r = _solo_superusuario(request)
+    if r: return r
     obj = get_object_or_404(Perfil, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -788,6 +895,8 @@ def perfil_toggle(request, pk):
 @login_required
 @require_POST
 def perfil_delete(request, pk):
+    r = _solo_superusuario(request)
+    if r: return r
     obj = get_object_or_404(Perfil, pk=pk)
     nombre = str(obj)
     try:
@@ -800,7 +909,7 @@ def perfil_delete(request, pk):
 
 # ── MÓDULO ────────────────────────────────────────────────────────────────────
 
-class ModuloListView(LoginRequiredMixin, ListView):
+class ModuloListView(_SuperuserMixin, LoginRequiredMixin, ListView):
     model = Modulo
     template_name = 'inv/catalogos/modulo_lista.html'
     context_object_name = 'objetos'
@@ -818,16 +927,20 @@ class ModuloListView(LoginRequiredMixin, ListView):
         ctx['q'] = self.request.GET.get('q', '')
         ctx['todos_roles'] = Rol.objects.all().order_by('nombre')
         ctx['url_eliminar'] = 'inv:modulo_eliminar'
+        u = self.request.user
+        ctx['puede_agregar']  = _tiene_perm(u, 'inv.add_modulo')
+        ctx['puede_editar']   = _tiene_perm(u, 'inv.change_modulo')
+        ctx['puede_eliminar'] = _tiene_perm(u, 'inv.delete_modulo')
         return ctx
 
 
-class ModuloCreateView(_ModalForm, _CatalogoForm, CreateView):
+class ModuloCreateView(_SuperuserMixin, _ModalForm, _CatalogoForm, CreateView):
     model = Modulo
     form_class = ModuloForm
     success_url = reverse_lazy('inv:modulo_lista')
 
 
-class ModuloUpdateView(_ModalForm, _CatalogoForm, UpdateView):
+class ModuloUpdateView(_SuperuserMixin, _ModalForm, _CatalogoForm, UpdateView):
     model = Modulo
     form_class = ModuloForm
     success_url = reverse_lazy('inv:modulo_lista')
@@ -836,6 +949,8 @@ class ModuloUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def modulo_toggle(request, pk):
+    r = _solo_superusuario(request)
+    if r: return r
     obj = get_object_or_404(Modulo, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -846,6 +961,8 @@ def modulo_toggle(request, pk):
 @login_required
 @require_POST
 def modulo_delete(request, pk):
+    r = _solo_superusuario(request)
+    if r: return r
     obj = get_object_or_404(Modulo, pk=pk)
     nombre = obj.nombre
     try:
@@ -875,6 +992,10 @@ class SoftwareListView(LoginRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         ctx['q'] = self.request.GET.get('q', '')
         ctx['url_eliminar'] = 'inv:software_eliminar'
+        u = self.request.user
+        ctx['puede_agregar']  = _tiene_perm(u, 'inv.add_software')
+        ctx['puede_editar']   = _tiene_perm(u, 'inv.change_software')
+        ctx['puede_eliminar'] = _tiene_perm(u, 'inv.delete_software')
         return ctx
 
 
@@ -893,6 +1014,8 @@ class SoftwareUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def software_toggle(request, pk):
+    r = _sin_permiso(request, 'inv.change_software', 'inv:software_lista')
+    if r: return r
     obj = get_object_or_404(Software, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -904,6 +1027,8 @@ def software_toggle(request, pk):
 @login_required
 @require_POST
 def software_delete(request, pk):
+    r = _sin_permiso(request, 'inv.delete_software', 'inv:software_lista')
+    if r: return r
     obj = get_object_or_404(Software, pk=pk)
     nombre = obj.nombre
     try:
@@ -1093,6 +1218,9 @@ class EquipoSubgrupoView(LoginRequiredMixin, View):
             'dispositivos': Dispositivo.objects.filter(subgrupo=subgrupo).select_related('tipo', 'marca').order_by('tipo__nombre'),
             'form': form,
             'modal_open': modal_open,
+            'puede_agregar':  _tiene_perm(request.user, 'inv.add_equipo'),
+            'puede_editar':   _tiene_perm(request.user, 'inv.change_equipo'),
+            'puede_eliminar': _tiene_perm(request.user, 'inv.delete_equipo'),
             'tc_json': _catalogo_cached('tc_json', lambda: TipoComponente.objects.filter(activo=True).values('id', 'nombre')),
             'tp_json': _catalogo_cached('tp_json', lambda: TipoPeriferico.objects.filter(activo=True).values('id', 'nombre')),
             'marcas_json': _catalogo_cached('marcas_json', lambda: Marca.objects.filter(activo=True).values('id', 'nombre')),
@@ -1224,6 +1352,9 @@ class EquipoUpdateView(LoginRequiredMixin, UpdateView):
 @login_required
 @require_POST
 def equipo_toggle(request, pk):
+    if not _tiene_perm(request.user, 'inv.change_equipo'):
+        messages.error(request, 'No tienes permiso para realizar esta accion.')
+        return redirect(request.META.get('HTTP_REFERER', '/'))
     equipo = get_object_or_404(Equipo, pk=pk)
     equipo.activo = not equipo.activo
     equipo.save(update_fields=['activo'])
@@ -1237,6 +1368,9 @@ def equipo_toggle(request, pk):
 @login_required
 @require_POST
 def equipo_delete(request, pk):
+    if not _tiene_perm(request.user, 'inv.delete_equipo'):
+        messages.error(request, 'No tienes permiso para realizar esta accion.')
+        return redirect(request.META.get('HTTP_REFERER', '/'))
     equipo = get_object_or_404(Equipo, pk=pk)
     codigo = equipo.codigo
     try:
@@ -1359,6 +1493,7 @@ class ModeloComponenteListView(LoginRequiredMixin, View):
             qs = qs.filter(tipo_id=tipo_id)
         paginator = Paginator(qs, 20)
         page_obj = paginator.get_page(request.GET.get('page'))
+        u = request.user
         return render(request, self.template_name, {
             'objetos': page_obj,
             'page_obj': page_obj,
@@ -1368,6 +1503,9 @@ class ModeloComponenteListView(LoginRequiredMixin, View):
             'tipos': tipos_qs,
             'marcas': marcas_qs,
             'tipo_sel': tipo_id,
+            'puede_agregar':  _tiene_perm(u, 'inv.add_modelocomponente'),
+            'puede_editar':   _tiene_perm(u, 'inv.change_modelocomponente'),
+            'puede_eliminar': _tiene_perm(u, 'inv.delete_modelocomponente'),
         })
 
 
@@ -1386,6 +1524,8 @@ class ModeloComponenteUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def modelo_componente_toggle(request, pk):
+    r = _sin_permiso(request, 'inv.change_modelocomponente', 'inv:modelo_componente_lista')
+    if r: return r
     obj = get_object_or_404(ModeloComponente, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -1396,6 +1536,8 @@ def modelo_componente_toggle(request, pk):
 @login_required
 @require_POST
 def modelo_componente_delete(request, pk):
+    r = _sin_permiso(request, 'inv.delete_modelocomponente', 'inv:modelo_componente_lista')
+    if r: return r
     obj = get_object_or_404(ModeloComponente, pk=pk)
     nombre = str(obj)
     try:
@@ -1475,6 +1617,9 @@ class DispositivoUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def dispositivo_toggle(request, pk):
+    if not _tiene_perm(request.user, 'inv.change_dispositivo'):
+        messages.error(request, 'No tienes permiso para realizar esta accion.')
+        return redirect(request.META.get('HTTP_REFERER', '/'))
     obj = get_object_or_404(Dispositivo, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -1488,6 +1633,9 @@ def dispositivo_toggle(request, pk):
 @login_required
 @require_POST
 def dispositivo_delete(request, pk):
+    if not _tiene_perm(request.user, 'inv.delete_dispositivo'):
+        messages.error(request, 'No tienes permiso para realizar esta accion.')
+        return redirect(request.META.get('HTTP_REFERER', '/'))
     obj = get_object_or_404(Dispositivo, pk=pk)
     nombre = str(obj)
     try:
@@ -1534,6 +1682,9 @@ def componente_update(request, equipo_pk, pk):
 @login_required
 @require_POST
 def componente_delete(request, equipo_pk, pk):
+    if not _tiene_perm(request.user, 'inv.delete_componente'):
+        messages.error(request, 'No tienes permiso para realizar esta accion.')
+        return redirect(request.META.get('HTTP_REFERER', '/'))
     componente = get_object_or_404(Componente, pk=pk, equipo_id=equipo_pk)
     componente.delete()
     messages.success(request, 'Componente eliminado.')
@@ -1573,6 +1724,9 @@ def periferico_update(request, equipo_pk, pk):
 @login_required
 @require_POST
 def periferico_delete(request, equipo_pk, pk):
+    if not _tiene_perm(request.user, 'inv.delete_periferico'):
+        messages.error(request, 'No tienes permiso para realizar esta accion.')
+        return redirect(request.META.get('HTTP_REFERER', '/'))
     periferico = get_object_or_404(Periferico, pk=pk, equipo_id=equipo_pk)
     periferico.delete()
     messages.success(request, 'Periférico eliminado.')
@@ -1615,6 +1769,9 @@ def instalacion_update(request, equipo_pk, pk):
 @login_required
 @require_POST
 def instalacion_delete(request, equipo_pk, pk):
+    if not _tiene_perm(request.user, 'inv.delete_instalacionsoftware'):
+        messages.error(request, 'No tienes permiso para realizar esta accion.')
+        return redirect(request.META.get('HTTP_REFERER', '/'))
     instalacion = get_object_or_404(InstalacionSoftware, pk=pk, equipo_id=equipo_pk)
     instalacion.delete()
     messages.success(request, 'Software eliminado.')
@@ -1684,6 +1841,8 @@ class ViaReporteUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def via_reporte_toggle(request, pk):
+    r = _sin_permiso(request, 'inv.change_viareporte', 'inv:via_reporte_lista')
+    if r: return r
     obj = get_object_or_404(ViaReporte, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -1694,6 +1853,8 @@ def via_reporte_toggle(request, pk):
 @login_required
 @require_POST
 def via_reporte_delete(request, pk):
+    r = _sin_permiso(request, 'inv.delete_viareporte', 'inv:via_reporte_lista')
+    if r: return r
     obj = get_object_or_404(ViaReporte, pk=pk)
     nombre = obj.nombre
     try:
@@ -1737,6 +1898,8 @@ class TipoRequerimientoUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def tipo_requerimiento_toggle(request, pk):
+    r = _sin_permiso(request, 'inv.change_tiporequerimiento', 'inv:tipo_requerimiento_lista')
+    if r: return r
     obj = get_object_or_404(TipoRequerimiento, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -1747,6 +1910,8 @@ def tipo_requerimiento_toggle(request, pk):
 @login_required
 @require_POST
 def tipo_requerimiento_delete(request, pk):
+    r = _sin_permiso(request, 'inv.delete_tiporequerimiento', 'inv:tipo_requerimiento_lista')
+    if r: return r
     obj = get_object_or_404(TipoRequerimiento, pk=pk)
     nombre = obj.nombre
     try:
@@ -1790,6 +1955,8 @@ class EstadoUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def estado_toggle(request, pk):
+    r = _sin_permiso(request, 'inv.change_estado', 'inv:estado_lista')
+    if r: return r
     obj = get_object_or_404(Estado, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -1800,6 +1967,8 @@ def estado_toggle(request, pk):
 @login_required
 @require_POST
 def estado_delete(request, pk):
+    r = _sin_permiso(request, 'inv.delete_estado', 'inv:estado_lista')
+    if r: return r
     obj = get_object_or_404(Estado, pk=pk)
     nombre = obj.nombre
     try:
@@ -1843,6 +2012,8 @@ class PrioridadUpdateView(_ModalForm, _CatalogoForm, UpdateView):
 @login_required
 @require_POST
 def prioridad_toggle(request, pk):
+    r = _sin_permiso(request, 'inv.change_prioridad', 'inv:prioridad_lista')
+    if r: return r
     obj = get_object_or_404(Prioridad, pk=pk)
     obj.activo = not obj.activo
     obj.save(update_fields=['activo'])
@@ -1853,6 +2024,8 @@ def prioridad_toggle(request, pk):
 @login_required
 @require_POST
 def prioridad_delete(request, pk):
+    r = _sin_permiso(request, 'inv.delete_prioridad', 'inv:prioridad_lista')
+    if r: return r
     obj = get_object_or_404(Prioridad, pk=pk)
     nombre = obj.nombre
     try:
