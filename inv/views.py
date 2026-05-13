@@ -18,12 +18,14 @@ from django.db.models import Q, ProtectedError, Case, When, Value, F, IntegerFie
 from .models import (Marca, TipoEquipo, TipoPeriferico, TipoComponente, ModeloComponente,
                      Modulo, Perfil, Institucion, Sede, Grupo, Subgrupo, Rol, Persona, Software,
                      Equipo, Componente, Periferico, InstalacionSoftware, Dispositivo,
+                     ViaReporte, TipoRequerimiento, Estado, Prioridad,
                      sedes_permitidas, _es_admin_rol)
 from .forms import (MarcaForm, TipoEquipoForm, TipoPerifericoForm, TipoComponenteForm,
                     ModeloComponenteForm,
                     InstitucionForm, SedeForm, GrupoForm, SubgrupoForm,
                     RolForm, PersonaForm, PerfilForm, ModuloForm, SoftwareForm,
-                    EquipoForm, DispositivoForm, ComponenteForm, PerifericoForm, InstalacionSoftwareForm)
+                    EquipoForm, DispositivoForm, ComponenteForm, PerifericoForm, InstalacionSoftwareForm,
+                    ViaReporteForm, TipoRequerimientoForm, EstadoForm, PrioridadForm)
 
 
 def _sedes_ids(user):
@@ -1617,3 +1619,245 @@ def instalacion_delete(request, equipo_pk, pk):
     instalacion.delete()
     messages.success(request, 'Software eliminado.')
     return redirect('inv:equipo_detalle', pk=equipo_pk)
+
+
+# ── CAMBIAR MI CONTRASEÑA ─────────────────────────────────────────────────────
+
+@login_required
+@require_POST
+def cambiar_mi_clave(request):
+    clave_actual = request.POST.get('clave_actual', '').strip()
+    clave1 = request.POST.get('clave1', '').strip()
+    clave2 = request.POST.get('clave2', '').strip()
+    next_url = request.POST.get('next', '') or request.META.get('HTTP_REFERER', '/')
+
+    if not request.user.check_password(clave_actual):
+        messages.error(request, 'La contraseña actual es incorrecta.')
+    elif not clave1:
+        messages.error(request, 'La nueva contraseña no puede estar vacía.')
+    elif clave1 != clave2:
+        messages.error(request, 'Las contraseñas nuevas no coinciden.')
+    elif len(clave1) < 6:
+        messages.error(request, 'La nueva contraseña debe tener al menos 6 caracteres.')
+    else:
+        request.user.set_password(clave1)
+        request.user.save(update_fields=['password'])
+        from django.contrib.auth import update_session_auth_hash
+        update_session_auth_hash(request, request.user)
+        messages.success(request, 'Contraseña actualizada correctamente.')
+
+    if next_url and next_url.startswith('/'):
+        return redirect(next_url)
+    return redirect('inv:home')
+
+
+# ── VÍA DE REPORTE ────────────────────────────────────────────────────────────
+
+class ViaReporteListView(_CatalogoList):
+    model = ViaReporte
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx.update(
+            titulo='Vías de Reporte',
+            tiene_codigo=False,
+            url_crear='inv:via_reporte_crear',
+            url_editar='inv:via_reporte_editar',
+            url_toggle='inv:via_reporte_toggle',
+            url_eliminar='inv:via_reporte_eliminar',
+        )
+        return ctx
+
+
+class ViaReporteCreateView(_ModalForm, _CatalogoForm, CreateView):
+    model = ViaReporte
+    form_class = ViaReporteForm
+    success_url = reverse_lazy('inv:via_reporte_lista')
+
+
+class ViaReporteUpdateView(_ModalForm, _CatalogoForm, UpdateView):
+    model = ViaReporte
+    form_class = ViaReporteForm
+    success_url = reverse_lazy('inv:via_reporte_lista')
+
+
+@login_required
+@require_POST
+def via_reporte_toggle(request, pk):
+    obj = get_object_or_404(ViaReporte, pk=pk)
+    obj.activo = not obj.activo
+    obj.save(update_fields=['activo'])
+    messages.success(request, f'Vía de reporte {"activada" if obj.activo else "desactivada"}.')
+    return redirect('inv:via_reporte_lista')
+
+
+@login_required
+@require_POST
+def via_reporte_delete(request, pk):
+    obj = get_object_or_404(ViaReporte, pk=pk)
+    nombre = obj.nombre
+    try:
+        obj.delete()
+        messages.success(request, f'Vía de reporte "{nombre}" eliminada.')
+    except ProtectedError:
+        messages.error(request, f'No se puede eliminar "{nombre}" porque tiene requerimientos asociados.')
+    return redirect('inv:via_reporte_lista')
+
+
+# ── TIPO DE REQUERIMIENTO ─────────────────────────────────────────────────────
+
+class TipoRequerimientoListView(_CatalogoList):
+    model = TipoRequerimiento
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx.update(
+            titulo='Tipos de Requerimiento',
+            tiene_codigo=False,
+            url_crear='inv:tipo_requerimiento_crear',
+            url_editar='inv:tipo_requerimiento_editar',
+            url_toggle='inv:tipo_requerimiento_toggle',
+            url_eliminar='inv:tipo_requerimiento_eliminar',
+        )
+        return ctx
+
+
+class TipoRequerimientoCreateView(_ModalForm, _CatalogoForm, CreateView):
+    model = TipoRequerimiento
+    form_class = TipoRequerimientoForm
+    success_url = reverse_lazy('inv:tipo_requerimiento_lista')
+
+
+class TipoRequerimientoUpdateView(_ModalForm, _CatalogoForm, UpdateView):
+    model = TipoRequerimiento
+    form_class = TipoRequerimientoForm
+    success_url = reverse_lazy('inv:tipo_requerimiento_lista')
+
+
+@login_required
+@require_POST
+def tipo_requerimiento_toggle(request, pk):
+    obj = get_object_or_404(TipoRequerimiento, pk=pk)
+    obj.activo = not obj.activo
+    obj.save(update_fields=['activo'])
+    messages.success(request, f'Tipo de requerimiento {"activado" if obj.activo else "desactivado"}.')
+    return redirect('inv:tipo_requerimiento_lista')
+
+
+@login_required
+@require_POST
+def tipo_requerimiento_delete(request, pk):
+    obj = get_object_or_404(TipoRequerimiento, pk=pk)
+    nombre = obj.nombre
+    try:
+        obj.delete()
+        messages.success(request, f'Tipo de requerimiento "{nombre}" eliminado.')
+    except ProtectedError:
+        messages.error(request, f'No se puede eliminar "{nombre}" porque tiene requerimientos asociados.')
+    return redirect('inv:tipo_requerimiento_lista')
+
+
+# ── ESTADO ────────────────────────────────────────────────────────────────────
+
+class EstadoListView(_CatalogoList):
+    model = Estado
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx.update(
+            titulo='Estados',
+            tiene_codigo=False,
+            url_crear='inv:estado_crear',
+            url_editar='inv:estado_editar',
+            url_toggle='inv:estado_toggle',
+            url_eliminar='inv:estado_eliminar',
+        )
+        return ctx
+
+
+class EstadoCreateView(_ModalForm, _CatalogoForm, CreateView):
+    model = Estado
+    form_class = EstadoForm
+    success_url = reverse_lazy('inv:estado_lista')
+
+
+class EstadoUpdateView(_ModalForm, _CatalogoForm, UpdateView):
+    model = Estado
+    form_class = EstadoForm
+    success_url = reverse_lazy('inv:estado_lista')
+
+
+@login_required
+@require_POST
+def estado_toggle(request, pk):
+    obj = get_object_or_404(Estado, pk=pk)
+    obj.activo = not obj.activo
+    obj.save(update_fields=['activo'])
+    messages.success(request, f'Estado {"activado" if obj.activo else "desactivado"}.')
+    return redirect('inv:estado_lista')
+
+
+@login_required
+@require_POST
+def estado_delete(request, pk):
+    obj = get_object_or_404(Estado, pk=pk)
+    nombre = obj.nombre
+    try:
+        obj.delete()
+        messages.success(request, f'Estado "{nombre}" eliminado.')
+    except ProtectedError:
+        messages.error(request, f'No se puede eliminar "{nombre}" porque tiene requerimientos asociados.')
+    return redirect('inv:estado_lista')
+
+
+# ── PRIORIDAD ─────────────────────────────────────────────────────────────────
+
+class PrioridadListView(_CatalogoList):
+    model = Prioridad
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx.update(
+            titulo='Prioridades',
+            tiene_codigo=False,
+            url_crear='inv:prioridad_crear',
+            url_editar='inv:prioridad_editar',
+            url_toggle='inv:prioridad_toggle',
+            url_eliminar='inv:prioridad_eliminar',
+        )
+        return ctx
+
+
+class PrioridadCreateView(_ModalForm, _CatalogoForm, CreateView):
+    model = Prioridad
+    form_class = PrioridadForm
+    success_url = reverse_lazy('inv:prioridad_lista')
+
+
+class PrioridadUpdateView(_ModalForm, _CatalogoForm, UpdateView):
+    model = Prioridad
+    form_class = PrioridadForm
+    success_url = reverse_lazy('inv:prioridad_lista')
+
+
+@login_required
+@require_POST
+def prioridad_toggle(request, pk):
+    obj = get_object_or_404(Prioridad, pk=pk)
+    obj.activo = not obj.activo
+    obj.save(update_fields=['activo'])
+    messages.success(request, f'Prioridad {"activada" if obj.activo else "desactivada"}.')
+    return redirect('inv:prioridad_lista')
+
+
+@login_required
+@require_POST
+def prioridad_delete(request, pk):
+    obj = get_object_or_404(Prioridad, pk=pk)
+    nombre = obj.nombre
+    try:
+        obj.delete()
+        messages.success(request, f'Prioridad "{nombre}" eliminada.')
+    except ProtectedError:
+        messages.error(request, f'No se puede eliminar "{nombre}" porque tiene requerimientos asociados.')
+    return redirect('inv:prioridad_lista')
