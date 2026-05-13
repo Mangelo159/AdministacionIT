@@ -6,6 +6,7 @@ app_name = 'inv'
 urlpatterns = [
     path('', views.home, name='home'),
     path('mantenimientos/', views.mantenimientos, name='mantenimientos'),
+    path('mi-clave/', views.cambiar_mi_clave, name='cambiar_mi_clave'),
     path('inventario/', views.inventario, name='inventario'),
 
     # Equipos
@@ -140,4 +141,32 @@ urlpatterns = [
     path('software/<int:pk>/editar/', views.SoftwareUpdateView.as_view(), name='software_editar'),
     path('software/<int:pk>/toggle/', views.software_toggle, name='software_toggle'),
     path('software/<int:pk>/eliminar/', views.software_delete, name='software_eliminar'),
+
+    # Vías de reporte
+    path('soporte/vias-reporte/', views.ViaReporteListView.as_view(), name='via_reporte_lista'),
+    path('soporte/vias-reporte/nueva/', views.ViaReporteCreateView.as_view(), name='via_reporte_crear'),
+    path('soporte/vias-reporte/<int:pk>/editar/', views.ViaReporteUpdateView.as_view(), name='via_reporte_editar'),
+    path('soporte/vias-reporte/<int:pk>/toggle/', views.via_reporte_toggle, name='via_reporte_toggle'),
+    path('soporte/vias-reporte/<int:pk>/eliminar/', views.via_reporte_delete, name='via_reporte_eliminar'),
+
+    # Tipos de requerimiento
+    path('soporte/tipos-requerimiento/', views.TipoRequerimientoListView.as_view(), name='tipo_requerimiento_lista'),
+    path('soporte/tipos-requerimiento/nuevo/', views.TipoRequerimientoCreateView.as_view(), name='tipo_requerimiento_crear'),
+    path('soporte/tipos-requerimiento/<int:pk>/editar/', views.TipoRequerimientoUpdateView.as_view(), name='tipo_requerimiento_editar'),
+    path('soporte/tipos-requerimiento/<int:pk>/toggle/', views.tipo_requerimiento_toggle, name='tipo_requerimiento_toggle'),
+    path('soporte/tipos-requerimiento/<int:pk>/eliminar/', views.tipo_requerimiento_delete, name='tipo_requerimiento_eliminar'),
+
+    # Estados
+    path('soporte/estados/', views.EstadoListView.as_view(), name='estado_lista'),
+    path('soporte/estados/nuevo/', views.EstadoCreateView.as_view(), name='estado_crear'),
+    path('soporte/estados/<int:pk>/editar/', views.EstadoUpdateView.as_view(), name='estado_editar'),
+    path('soporte/estados/<int:pk>/toggle/', views.estado_toggle, name='estado_toggle'),
+    path('soporte/estados/<int:pk>/eliminar/', views.estado_delete, name='estado_eliminar'),
+
+    # Prioridades
+    path('soporte/prioridades/', views.PrioridadListView.as_view(), name='prioridad_lista'),
+    path('soporte/prioridades/nueva/', views.PrioridadCreateView.as_view(), name='prioridad_crear'),
+    path('soporte/prioridades/<int:pk>/editar/', views.PrioridadUpdateView.as_view(), name='prioridad_editar'),
+    path('soporte/prioridades/<int:pk>/toggle/', views.prioridad_toggle, name='prioridad_toggle'),
+    path('soporte/prioridades/<int:pk>/eliminar/', views.prioridad_delete, name='prioridad_eliminar'),
 ]

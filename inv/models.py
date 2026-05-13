@@ -1,3 +1,5 @@
+import datetime
+
 import unicodedata
 
 from django.contrib.auth.models import User, Group
@@ -419,3 +421,102 @@ def sedes_permitidas(user):
     if hasattr(user, 'persona'):
         return user.persona.sedes.all()
     return Sede.objects.none()
+
+# ============================================================
+# CATALOGO DE SOPORTE
+# ============================================================
+
+
+class ViaReporte(models.Model):
+    nombre = models.CharField(max_length=150, unique=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'Vía de reporte'
+        verbose_name_plural = 'Vías de reporte'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
+class TipoRequerimiento(models.Model):
+    nombre = models.CharField(max_length=150, unique=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'Tipo de requerimiento'
+        verbose_name_plural = 'Tipos de requerimiento'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
+class Estado(models.Model):
+    nombre = models.CharField(max_length=150, unique=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'Estado'
+        verbose_name_plural = 'Estados'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
+class Prioridad(models.Model):
+    nombre = models.CharField(max_length=150, unique=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'Prioridad'
+        verbose_name_plural = 'Prioridades'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+class Requerimiento(models.Model):
+    numero_ticket = models.CharField(max_length=20, unique=True, null=True, blank=True)  # Cambiado a CharField
+    fecha_reporte = models.DateField(null=True, blank=True)
+    persona_reporto = models.CharField(max_length=100, null=True, blank=True)
+    tipo_requerimiento = models.ForeignKey(TipoRequerimiento, on_delete=models.PROTECT)
+    descripcion = models.TextField(blank=True)
+    accion = models.TextField(blank=True)
+    estado = models.ForeignKey(Estado, on_delete=models.PROTECT)
+    tecnico = models.ForeignKey(Persona, on_delete=models.PROTECT)
+    area = models.ForeignKey(Grupo, on_delete=models.PROTECT)
+    departamento = models.ForeignKey(Subgrupo, on_delete=models.PROTECT)
+    via_reporte = models.ForeignKey(ViaReporte, on_delete=models.PROTECT)
+    prioridad = models.ForeignKey(Prioridad, on_delete=models.PROTECT)
+    observaciones = models.TextField(blank=True)
+    fecha_solucion = models.DateTimeField(auto_now_add=True)
+    evidencia = models.TextField(blank=True) #VER QUE SE HACE AQUI POR QUE AQUI VA UNA IMAGEN VER QUE SOLUCION USAMOS
+
+
+def generar_numero_ticket():
+    """
+    Genera un número de ticket automático con el formato: TIC-2025-001
+    """
+
+    ano_actual = datetime.now().year
+
+    # Buscar el último ticket del año actual
+    ultimo_ticket = Requerimiento.objects.filter(
+        numero_ticket__startswith=f'TIC-{ano_actual}'
+    ).order_by('-numero_ticket').first()
+
+    if ultimo_ticket:
+        # Extraer el número secuencial del último ticket
+        try:
+            ultimo_numero = int(ultimo_ticket.numero_ticket.split('-')[-1])
+            nuevo_numero = ultimo_numero + 1
+        except (ValueError, IndexError):
+            nuevo_numero = 1
+    else:
+        nuevo_numero = 1
+
+    # Formatear el número con 3 dígitos (001, 002, etc.)
+    return f'TIC-{ano_actual}-{str(nuevo_numero).zfill(3)}'

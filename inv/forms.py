@@ -1,7 +1,8 @@
 from django import forms
 from .models import (Marca, TipoEquipo, TipoPeriferico, TipoComponente, ModeloComponente,
                      Institucion, Sede, Grupo, Subgrupo, Rol, Persona, Perfil, Modulo, Software,
-                     Equipo, Componente, Periferico, InstalacionSoftware, Dispositivo)
+                     Equipo, Componente, Periferico, InstalacionSoftware, Dispositivo,
+                     ViaReporte, TipoRequerimiento, Estado, Prioridad)
 
 
 class MarcaForm(forms.ModelForm):
@@ -270,4 +271,46 @@ class InstalacionSoftwareForm(forms.ModelForm):
             'fecha_instalacion': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'fecha_vencimiento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+
+# ── SOPORTE ───────────────────────────────────────────────────────────────────
+
+class ViaReporteForm(forms.ModelForm):
+    class Meta:
+        model = ViaReporte
+        fields = ['nombre', 'activo']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'autofocus': True}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class TipoRequerimientoForm(forms.ModelForm):
+    class Meta:
+        model = TipoRequerimiento
+        fields = ['nombre', 'activo']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'autofocus': True}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class EstadoForm(forms.ModelForm):
+    class Meta:
+        model = Estado
+        fields = ['nombre', 'activo']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'autofocus': True}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class PrioridadForm(forms.ModelForm):
+    class Meta:
+        model = Prioridad
+        fields = ['nombre', 'activo']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'autofocus': True}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
