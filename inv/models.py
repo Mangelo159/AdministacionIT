@@ -5,6 +5,7 @@ import unicodedata
 from django.contrib.auth.models import User, Group
 from django.db import models
 from django.utils.crypto import get_random_string
+from simple_history.models import HistoricalRecords
 
 def _limpiar(texto):
     texto = unicodedata.normalize('NFKD', texto)
@@ -263,6 +264,7 @@ class Equipo(models.Model):
     observaciones = models.TextField(blank=True)
     activo = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
+    history = HistoricalRecords()
 
     @property
     def ubicacion(self):
@@ -333,6 +335,7 @@ class Componente(models.Model):
     modelo = models.ForeignKey(ModeloComponente, on_delete=models.PROTECT, related_name='usos',
                                null=True, blank=True)
     activo = models.BooleanField(default=True)
+    history = HistoricalRecords()
 
     class Meta:
         verbose_name = 'Componente'
@@ -349,6 +352,7 @@ class Periferico(models.Model):
     equipo = models.ForeignKey(Equipo, on_delete=models.SET_NULL, null=True, blank=True,related_name='perifericos',help_text='Equipo al que está conectado (puede estar suelto en bodega)')
     activo = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
+    history = HistoricalRecords()
 
     class Meta:
         verbose_name = 'Periférico'
@@ -366,6 +370,7 @@ class Software(models.Model):
     fabricante = models.CharField(max_length=100, blank=True)
     requiere_licencia = models.BooleanField(default=True)
     activo = models.BooleanField(default=True)
+    history = HistoricalRecords()
 
     class Meta:
         verbose_name = 'Software'

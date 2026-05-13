@@ -1,6 +1,7 @@
 asgiref==3.11.1
 dj-database-url==2.1.0
 Django==5.2.14
+django-simple-history==3.11.0
 django-tailwind==4.4.2
 gunicorn==23.0.0
 psycopg[binary]==3.2.9
