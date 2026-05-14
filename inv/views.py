@@ -2119,19 +2119,36 @@ def prioridad_delete(request, pk):
 
 # ── REQUERIMIENTO ─────────────────────────────────────────────────────────────
 
+_REQ_CATALOG_TTL = 300  # segundos
+
+
+def _catalogs_requerimiento():
+    """Catálogos cacheados usados en ambas vistas de requerimiento."""
+    result = cache.get('req_catalogs')
+    if result is None:
+        result = {
+            'tipos_requerimiento': list(TipoRequerimiento.objects.filter(activo=True)),
+            'vias_reporte':        list(ViaReporte.objects.filter(activo=True)),
+            'estados':             list(Estado.objects.filter(activo=True)),
+            'prioridades':         list(Prioridad.objects.filter(activo=True)),
+            'areas':               list(Grupo.objects.filter(activo=True)),
+            'tecnicos':            list(
+                Persona.objects.filter(activo=True)
+                .only('id', 'nombre', 'apellido1', 'apellido2')
+                .order_by('apellido1', 'apellido2', 'nombre')
+            ),
+        }
+        cache.set('req_catalogs', result, _REQ_CATALOG_TTL)
+    return result
+
+
 class FormularioRequerimientoView(LoginRequiredMixin, View):
     """Módulo 1 — Página dedicada para registrar un nuevo requerimiento."""
 
     def _ctx(self, form):
-        return {
-            'form': form,
-            'tipos_requerimiento': TipoRequerimiento.objects.filter(activo=True),
-            'vias_reporte': ViaReporte.objects.filter(activo=True),
-            'estados': Estado.objects.filter(activo=True),
-            'prioridades': Prioridad.objects.filter(activo=True),
-            'areas': Grupo.objects.filter(activo=True),
-            'tecnicos': Persona.objects.filter(activo=True),
-        }
+        ctx = {'form': form}
+        ctx.update(_catalogs_requerimiento())
+        return ctx
 
     def get(self, request):
         if not _tiene_perm(request.user, 'inv.add_requerimiento'):
@@ -2161,8 +2178,8 @@ class RegistroRequerimientosView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         qs = Requerimiento.objects.select_related(
-            'tipo_requerimiento', 'estado', 'prioridad', 'tecnico', 'area', 'departamento'
-        )
+            'tipo_requerimiento', 'estado', 'prioridad', 'tecnico', 'area'
+        ).defer('descripcion', 'accion', 'observaciones')
         q = self.request.GET.get('q', '').strip()
         if q:
             qs = qs.filter(
@@ -2187,12 +2204,7 @@ class RegistroRequerimientosView(LoginRequiredMixin, ListView):
         ctx['filtro_estado'] = self.request.GET.get('estado', '')
         ctx['filtro_prioridad'] = self.request.GET.get('prioridad', '')
         ctx['filtro_area'] = self.request.GET.get('area', '')
-        ctx['estados'] = Estado.objects.filter(activo=True)
-        ctx['prioridades'] = Prioridad.objects.filter(activo=True)
-        ctx['areas'] = Grupo.objects.filter(activo=True)
-        ctx['tipos_requerimiento'] = TipoRequerimiento.objects.filter(activo=True)
-        ctx['vias_reporte'] = ViaReporte.objects.filter(activo=True)
-        ctx['tecnicos'] = Persona.objects.filter(activo=True)
+        ctx.update(_catalogs_requerimiento())
         u = self.request.user
         ctx['puede_editar'] = _tiene_perm(u, 'inv.change_requerimiento')
         ctx['puede_eliminar'] = _tiene_perm(u, 'inv.delete_requerimiento')

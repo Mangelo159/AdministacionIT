@@ -538,9 +538,13 @@ class Prioridad(models.Model):
 
 def generar_numero_ticket():
     ano_actual = datetime.datetime.now().year
-    ultimo_ticket = Requerimiento.objects.filter(
-        numero_ticket__startswith=f'TIC-{ano_actual}'
-    ).order_by('-numero_ticket').first()
+    ultimo_ticket = (
+        Requerimiento.objects
+        .filter(numero_ticket__startswith=f'TIC-{ano_actual}')
+        .only('numero_ticket')
+        .order_by('-id')
+        .first()
+    )
     if ultimo_ticket:
         try:
             nuevo_numero = int(ultimo_ticket.numero_ticket.split('-')[-1]) + 1
