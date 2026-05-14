@@ -3,6 +3,7 @@ import datetime
 import unicodedata
 
 from django.contrib.auth.models import User, Group
+from django.core.cache import cache
 from django.db import models
 from django.utils.crypto import get_random_string
 from simple_history.models import HistoricalRecords
@@ -464,11 +465,17 @@ def _es_admin_rol(user):
     """True si el usuario tiene al menos un Perfil activo con Rol marcado como es_admin."""
     if not hasattr(user, 'persona'):
         return False
-    if not hasattr(user, '_es_admin_cached'):
-        user._es_admin_cached = Perfil.objects.filter(
+    if hasattr(user, '_es_admin_cached'):
+        return user._es_admin_cached
+    cache_key = f'adminrol:{user.pk}'
+    result = cache.get(cache_key)
+    if result is None:
+        result = Perfil.objects.filter(
             persona=user.persona, activo=True, rol__es_admin=True
         ).exists()
-    return user._es_admin_cached
+        cache.set(cache_key, result, 300)
+    user._es_admin_cached = result
+    return result
 
 
 def sedes_permitidas(user):

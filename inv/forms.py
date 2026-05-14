@@ -345,11 +345,12 @@ class RequerimientoForm(forms.ModelForm):
         self.fields['estado'].queryset = Estado.objects.filter(activo=True)
         self.fields['prioridad'].queryset = Prioridad.objects.filter(activo=True)
         self.fields['via_reporte'].queryset = ViaReporte.objects.filter(activo=True)
-        self.fields['tecnico'].queryset = Persona.objects.filter(activo=True)
-        self.fields['area'].queryset = Grupo.objects.filter(activo=True)
-        if self.instance.pk and self.instance.area_id:
+        self.fields['tecnico'].queryset = Persona.objects.only('id', 'nombre', 'apellido1', 'apellido2').filter(activo=True)
+        self.fields['area'].queryset = Grupo.objects.select_related('sede').filter(activo=True)
+        area_id = self.data.get('area') or (self.instance.area_id if self.instance.pk else None)
+        if area_id:
             self.fields['departamento'].queryset = Subgrupo.objects.filter(
-                grupo=self.instance.area, activo=True
+                grupo_id=area_id, activo=True
             )
         else:
             self.fields['departamento'].queryset = Subgrupo.objects.none()

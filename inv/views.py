@@ -39,9 +39,25 @@ def _sedes_ids(user):
     return []
 
 
+def _institucion_id(user):
+    """None = sin filtro (admin/superuser). ID de institución = usuario normal con persona vinculada."""
+    if user is None or user.is_superuser or user.is_staff or _es_admin_rol(user):
+        return None
+    if hasattr(user, 'persona') and user.persona.institucion_id:
+        return user.persona.institucion_id
+    return None
+
+
 def _tiene_perm(user, perm):
     """True si el usuario tiene el permiso dado. Superuser/staff/rol-admin siempre tienen acceso."""
-    return user.is_superuser or user.is_staff or _es_admin_rol(user) or user.has_perm(perm)
+    if user.is_superuser or user.is_staff:
+        return True
+    cache_key = f'userperm:{user.pk}:{perm}'
+    result = cache.get(cache_key)
+    if result is None:
+        result = _es_admin_rol(user) or user.has_perm(perm)
+        cache.set(cache_key, result, 300)
+    return result
 
 
 def _sin_permiso(request, perm, redirect_url):
@@ -2122,32 +2138,42 @@ def prioridad_delete(request, pk):
 _REQ_CATALOG_TTL = 300  # segundos
 
 
-def _catalogs_requerimiento():
-    """Catálogos cacheados usados en ambas vistas de requerimiento."""
-    result = cache.get('req_catalogs')
+def _catalogs_requerimiento(user=None):
+    """Catálogos cacheados usados en ambas vistas de requerimiento, filtrados por sedes del usuario."""
+    sedes_ids = _sedes_ids(user) if user else None
+    if sedes_ids is None:
+        cache_key = 'req_catalogs_all'
+    else:
+        cache_key = f'req_catalogs_sedes_{"_".join(str(i) for i in sorted(sedes_ids)) or "none"}'
+    result = cache.get(cache_key)
     if result is None:
+        areas_qs = Grupo.objects.select_related('sede').filter(activo=True)
+        tecnicos_qs = (
+            Persona.objects.filter(activo=True)
+            .only('id', 'nombre', 'apellido1', 'apellido2')
+            .order_by('apellido1', 'apellido2', 'nombre')
+        )
+        if sedes_ids is not None:
+            areas_qs = areas_qs.filter(sede__id__in=sedes_ids)
+            tecnicos_qs = tecnicos_qs.filter(sedes__id__in=sedes_ids).distinct()
         result = {
             'tipos_requerimiento': list(TipoRequerimiento.objects.filter(activo=True)),
             'vias_reporte':        list(ViaReporte.objects.filter(activo=True)),
             'estados':             list(Estado.objects.filter(activo=True)),
             'prioridades':         list(Prioridad.objects.filter(activo=True)),
-            'areas':               list(Grupo.objects.filter(activo=True)),
-            'tecnicos':            list(
-                Persona.objects.filter(activo=True)
-                .only('id', 'nombre', 'apellido1', 'apellido2')
-                .order_by('apellido1', 'apellido2', 'nombre')
-            ),
+            'areas':               list(areas_qs),
+            'tecnicos':            list(tecnicos_qs),
         }
-        cache.set('req_catalogs', result, _REQ_CATALOG_TTL)
+        cache.set(cache_key, result, _REQ_CATALOG_TTL)
     return result
 
 
 class FormularioRequerimientoView(LoginRequiredMixin, View):
     """Módulo 1 — Página dedicada para registrar un nuevo requerimiento."""
 
-    def _ctx(self, form):
+    def _ctx(self, request, form):
         ctx = {'form': form}
-        ctx.update(_catalogs_requerimiento())
+        ctx.update(_catalogs_requerimiento(request.user))
         return ctx
 
     def get(self, request):
@@ -2155,7 +2181,7 @@ class FormularioRequerimientoView(LoginRequiredMixin, View):
             messages.error(request, 'No tienes permiso para registrar requerimientos.')
             return redirect('inv:home')
         return render(request, 'inv/soporte/formulario_requerimiento.html',
-                      self._ctx(RequerimientoForm()))
+                      self._ctx(request, RequerimientoForm()))
 
     def post(self, request):
         if not _tiene_perm(request.user, 'inv.add_requerimiento'):
@@ -2166,7 +2192,7 @@ class FormularioRequerimientoView(LoginRequiredMixin, View):
             req = form.save()
             messages.success(request, f'Requerimiento {req.numero_ticket} registrado exitosamente.')
             return redirect('inv:formulario_requerimiento')
-        return render(request, 'inv/soporte/formulario_requerimiento.html', self._ctx(form))
+        return render(request, 'inv/soporte/formulario_requerimiento.html', self._ctx(request, form))
 
 
 class RegistroRequerimientosView(LoginRequiredMixin, ListView):
@@ -2180,6 +2206,9 @@ class RegistroRequerimientosView(LoginRequiredMixin, ListView):
         qs = Requerimiento.objects.select_related(
             'tipo_requerimiento', 'estado', 'prioridad', 'tecnico', 'area'
         ).defer('descripcion', 'accion', 'observaciones')
+        sedes_ids = _sedes_ids(self.request.user)
+        if sedes_ids is not None:
+            qs = qs.filter(area__sede__id__in=sedes_ids)
         q = self.request.GET.get('q', '').strip()
         if q:
             qs = qs.filter(
@@ -2204,7 +2233,7 @@ class RegistroRequerimientosView(LoginRequiredMixin, ListView):
         ctx['filtro_estado'] = self.request.GET.get('estado', '')
         ctx['filtro_prioridad'] = self.request.GET.get('prioridad', '')
         ctx['filtro_area'] = self.request.GET.get('area', '')
-        ctx.update(_catalogs_requerimiento())
+        ctx.update(_catalogs_requerimiento(self.request.user))
         u = self.request.user
         ctx['puede_editar'] = _tiene_perm(u, 'inv.change_requerimiento')
         ctx['puede_eliminar'] = _tiene_perm(u, 'inv.delete_requerimiento')
