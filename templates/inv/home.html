@@ -46,4 +46,49 @@
 </div>
 {% endif %}
 
+{% if pendientes_home %}
+<div class="mt-8">
+  <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center gap-2">
+      <div class="w-6 h-6 bg-red-500 rounded-md flex items-center justify-center shrink-0">
+        <i class="bi bi-bell-fill text-white text-xs"></i>
+      </div>
+      <h2 class="text-sm font-semibold text-slate-700">Mis requerimientos pendientes</h2>
+    </div>
+    <a href="{% url 'inv:mis_requerimientos' %}?filtro=pendientes"
+       class="text-xs text-[#2F4156] font-medium hover:underline">
+      Ver todos <i class="bi bi-arrow-right text-[10px]"></i>
+    </a>
+  </div>
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50/70 border-b border-slate-100">
+        <tr>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Ticket</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Área</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Prioridad</th>
+          <th class="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Fecha</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for req in pendientes_home %}
+        <tr class="hover:bg-slate-50/50 transition-colors">
+          <td class="px-4 py-2.5 font-mono text-xs text-[#2F4156] font-semibold">{{ req.numero_ticket }}</td>
+          <td class="px-4 py-2.5 text-slate-600 text-xs">{{ req.area|default:"—" }}</td>
+          <td class="px-4 py-2.5">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+              {{ req.estado|default:"—" }}
+            </span>
+          </td>
+          <td class="px-4 py-2.5 text-slate-500 text-xs">{{ req.prioridad|default:"—" }}</td>
+          <td class="px-4 py-2.5 text-slate-400 text-xs">{{ req.fecha_reporte|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}

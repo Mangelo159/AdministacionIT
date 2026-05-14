@@ -321,9 +321,11 @@ class TipoRequerimientoForm(forms.ModelForm):
 class EstadoForm(forms.ModelForm):
     class Meta:
         model = Estado
-        fields = ['nombre', 'activo']
+        fields = ['nombre', 'orden', 'es_final', 'activo']
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control', 'autofocus': True}),
+            'orden': forms.NumberInput(attrs={'class': 'form-control', 'min': 0}),
+            'es_final': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 

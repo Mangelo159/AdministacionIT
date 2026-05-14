@@ -520,12 +520,14 @@ class TipoRequerimiento(models.Model):
 
 class Estado(models.Model):
     nombre = models.CharField(max_length=150, unique=True)
+    orden = models.PositiveIntegerField(default=0, help_text='Orden de avance (mayor = más avanzado)')
+    es_final = models.BooleanField(default=False, help_text='Marca este estado como cierre del requerimiento')
     activo = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = 'Estado'
         verbose_name_plural = 'Estados'
-        ordering = ['nombre']
+        ordering = ['orden', 'nombre']
 
     def __str__(self):
         return self.nombre

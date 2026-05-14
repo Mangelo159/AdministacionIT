@@ -58,6 +58,22 @@
                     <!-- Divider -->
                     <div class="w-px h-5 bg-[#2F4156]/20 mx-1"></div>
 
+                    <!-- Badge requerimientos pendientes -->
+                    {% if mis_reqs_pendientes > 0 %}
+                    <a href="{% url 'inv:mis_requerimientos' %}?filtro=pendientes"
+                       title="{{ mis_reqs_pendientes }} requerimiento{% if mis_reqs_pendientes != 1 %}s{% endif %} pendiente{% if mis_reqs_pendientes != 1 %}s{% endif %}"
+                       class="relative flex items-center justify-center w-9 h-9 rounded-lg
+                              hover:bg-[#2F4156]/10 transition-colors text-[#2F4156]">
+                      <i class="bi bi-bell-fill text-base"></i>
+                      <span class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1
+                                   bg-red-500 text-white text-[10px] font-bold rounded-full
+                                   flex items-center justify-center leading-none">
+                        {{ mis_reqs_pendientes }}
+                      </span>
+                    </a>
+                    <div class="w-px h-5 bg-[#2F4156]/20 mx-1"></div>
+                    {% endif %}
+
                     <!-- User dropdown -->
                     <div class="relative" x-data="{ drop: false }" @click.outside="drop = false">
                         <button @click="drop = !drop"

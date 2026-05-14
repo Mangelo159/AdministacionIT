@@ -186,4 +186,8 @@ urlpatterns = [
     path('soporte/requerimientos/<int:pk>/editar/', views.RequerimientoUpdateView.as_view(), name='requerimiento_editar'),
     path('soporte/requerimientos/<int:pk>/eliminar/', views.requerimiento_delete, name='requerimiento_eliminar'),
     path('soporte/requerimientos/<int:pk>/json/', views.requerimiento_json, name='requerimiento_json'),
+
+    # Requerimientos — módulo Técnico
+    path('soporte/mis-requerimientos/', views.MisRequerimientosView.as_view(), name='mis_requerimientos'),
+    path('soporte/mis-requerimientos/<int:pk>/avanzar/', views.mis_requerimiento_avanzar, name='mis_requerimiento_avanzar'),
 ]

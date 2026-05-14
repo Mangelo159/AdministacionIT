@@ -118,10 +118,21 @@ def home(request):
         except NoReverseMatch:
             m.url_resuelta = '#'
 
+    pendientes_home = []
+    if hasattr(u, 'persona'):
+        pendientes_home = list(
+            Requerimiento.objects.filter(
+                tecnico=u.persona,
+                estado__es_final=False,
+            ).select_related('estado', 'prioridad', 'area')
+            .order_by('fecha_reporte')[:5]
+        )
+
     return render(request, 'inv/home.html', {
         'modulos': modulos,
         'puede_formulario': _tiene_perm(u, 'inv.add_requerimiento'),
         'puede_registro': _tiene_perm(u, 'inv.view_requerimiento'),
+        'pendientes_home': pendientes_home,
     })
 
 
@@ -2302,3 +2313,74 @@ def requerimiento_delete(request, pk):
     except ProtectedError:
         messages.error(request, f'No se puede eliminar "{ticket}" porque tiene registros asociados.')
     return redirect('inv:registro_requerimientos')
+
+
+# ── MIS REQUERIMIENTOS (Técnico) ──────────────────────────────────────────────
+
+class MisRequerimientosView(LoginRequiredMixin, ListView):
+    """Vista exclusiva del técnico: muestra solo los requerimientos asignados a él."""
+    model = Requerimiento
+    template_name = 'inv/soporte/mis_requerimientos.html'
+    context_object_name = 'requerimientos'
+    paginate_by = 20
+
+    def get_queryset(self):
+        if not hasattr(self.request.user, 'persona'):
+            return Requerimiento.objects.none()
+        qs = Requerimiento.objects.filter(
+            tecnico=self.request.user.persona
+        ).select_related('tipo_requerimiento', 'estado', 'prioridad', 'area', 'departamento')
+        filtro = self.request.GET.get('filtro', '')
+        if filtro == 'pendientes':
+            qs = qs.filter(estado__es_final=False)
+        elif filtro == 'finalizados':
+            qs = qs.filter(estado__es_final=True)
+        return qs.order_by('estado__es_final', 'fecha_reporte')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['filtro'] = self.request.GET.get('filtro', '')
+        ctx['estados_avance'] = list(Estado.objects.filter(activo=True).order_by('orden'))
+        if hasattr(self.request.user, 'persona'):
+            ctx['total_pendientes'] = Requerimiento.objects.filter(
+                tecnico=self.request.user.persona,
+                estado__es_final=False,
+            ).count()
+        else:
+            ctx['total_pendientes'] = 0
+        return ctx
+
+
+@login_required
+@require_POST
+def mis_requerimiento_avanzar(request, pk):
+    """Permite al técnico avanzar el estado de su requerimiento (solo hacia adelante) y agregar observación."""
+    if not hasattr(request.user, 'persona'):
+        return JsonResponse({'ok': False, 'error': 'Sin perfil de técnico.'}, status=403)
+
+    req = get_object_or_404(Requerimiento, pk=pk, tecnico=request.user.persona)
+    nuevo_estado_id = request.POST.get('estado_id', '').strip()
+    observacion = request.POST.get('observacion', '').strip()
+
+    if not nuevo_estado_id:
+        return JsonResponse({'ok': False, 'error': 'Debes seleccionar un estado.'})
+
+    nuevo_estado = get_object_or_404(Estado, pk=nuevo_estado_id, activo=True)
+    orden_actual = req.estado.orden if req.estado_id else -1
+
+    if nuevo_estado.orden <= orden_actual:
+        return JsonResponse({'ok': False, 'error': 'No puedes retroceder el estado.'})
+
+    req.estado = nuevo_estado
+    if observacion:
+        existente = req.observaciones or ''
+        sep = '\n' if existente else ''
+        req.observaciones = existente + sep + observacion
+    req.save(update_fields=['estado', 'observaciones'])
+
+    return JsonResponse({
+        'ok': True,
+        'estado_nombre': nuevo_estado.nombre,
+        'es_final': nuevo_estado.es_final,
+        'estado_orden': nuevo_estado.orden,
+    })
