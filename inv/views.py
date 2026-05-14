@@ -2034,6 +2034,7 @@ def tipo_requerimiento_delete(request, pk):
 
 class EstadoListView(_CatalogoList):
     model = Estado
+    template_name = 'inv/catalogos/estado_lista.html'
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
