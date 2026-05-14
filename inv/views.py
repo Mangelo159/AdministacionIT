@@ -19,7 +19,7 @@ from .models import (Marca, TipoEquipo, TipoPeriferico, TipoComponente, ModeloCo
                      Modulo, Perfil, Institucion, Sede, Grupo, Subgrupo, Rol, Persona, Software,
                      Equipo, Componente, Periferico, InstalacionSoftware, Dispositivo,
                      ViaReporte, TipoRequerimiento, Estado, Prioridad,
-                     GrupoProgramas,
+                     GrupoProgramas, Requerimiento,
                      sedes_permitidas, _es_admin_rol)
 from .forms import (MarcaForm, TipoEquipoForm, TipoPerifericoForm, TipoComponenteForm,
                     ModeloComponenteForm,
@@ -27,7 +27,7 @@ from .forms import (MarcaForm, TipoEquipoForm, TipoPerifericoForm, TipoComponent
                     RolForm, PersonaForm, PerfilForm, ModuloForm, SoftwareForm,
                     EquipoForm, DispositivoForm, ComponenteForm, PerifericoForm, InstalacionSoftwareForm,
                     ViaReporteForm, TipoRequerimientoForm, EstadoForm, PrioridadForm,
-                    GrupoProgramasForm)
+                    GrupoProgramasForm, RequerimientoForm)
 
 
 def _sedes_ids(user):
@@ -81,11 +81,12 @@ def inventario(request):
 
 @login_required
 def home(request):
-    if request.user.is_superuser:
+    u = request.user
+    if u.is_superuser:
         modulos = list(Modulo.objects.filter(activo=True).order_by('orden', 'nombre'))
-    elif hasattr(request.user, 'persona'):
+    elif hasattr(u, 'persona'):
         roles_ids = Perfil.objects.filter(
-            persona=request.user.persona, activo=True
+            persona=u.persona, activo=True
         ).values_list('rol_id', flat=True)
         modulos = list(
             Modulo.objects.filter(activo=True, roles__in=roles_ids)
@@ -101,7 +102,11 @@ def home(request):
         except NoReverseMatch:
             m.url_resuelta = '#'
 
-    return render(request, 'inv/home.html', {'modulos': modulos})
+    return render(request, 'inv/home.html', {
+        'modulos': modulos,
+        'puede_formulario': _tiene_perm(u, 'inv.add_requerimiento'),
+        'puede_registro': _tiene_perm(u, 'inv.view_requerimiento'),
+    })
 
 
 # ── Mixins base ───────────────────────────────────────────────────────────────
@@ -2110,3 +2115,149 @@ def prioridad_delete(request, pk):
     except ProtectedError:
         messages.error(request, f'No se puede eliminar "{nombre}" porque tiene requerimientos asociados.')
     return redirect('inv:prioridad_lista')
+
+
+# ── REQUERIMIENTO ─────────────────────────────────────────────────────────────
+
+class FormularioRequerimientoView(LoginRequiredMixin, View):
+    """Módulo 1 — Página dedicada para registrar un nuevo requerimiento."""
+
+    def _ctx(self, form):
+        return {
+            'form': form,
+            'tipos_requerimiento': TipoRequerimiento.objects.filter(activo=True),
+            'vias_reporte': ViaReporte.objects.filter(activo=True),
+            'estados': Estado.objects.filter(activo=True),
+            'prioridades': Prioridad.objects.filter(activo=True),
+            'areas': Grupo.objects.filter(activo=True),
+            'tecnicos': Persona.objects.filter(activo=True),
+        }
+
+    def get(self, request):
+        if not _tiene_perm(request.user, 'inv.add_requerimiento'):
+            messages.error(request, 'No tienes permiso para registrar requerimientos.')
+            return redirect('inv:home')
+        return render(request, 'inv/soporte/formulario_requerimiento.html',
+                      self._ctx(RequerimientoForm()))
+
+    def post(self, request):
+        if not _tiene_perm(request.user, 'inv.add_requerimiento'):
+            messages.error(request, 'No tienes permiso para registrar requerimientos.')
+            return redirect('inv:home')
+        form = RequerimientoForm(request.POST, request.FILES)
+        if form.is_valid():
+            req = form.save()
+            messages.success(request, f'Requerimiento {req.numero_ticket} registrado exitosamente.')
+            return redirect('inv:formulario_requerimiento')
+        return render(request, 'inv/soporte/formulario_requerimiento.html', self._ctx(form))
+
+
+class RegistroRequerimientosView(LoginRequiredMixin, ListView):
+    """Módulo 2 — Tabla con todos los requerimientos registrados + filtros."""
+    model = Requerimiento
+    template_name = 'inv/soporte/requerimiento_lista.html'
+    context_object_name = 'requerimientos'
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = Requerimiento.objects.select_related(
+            'tipo_requerimiento', 'estado', 'prioridad', 'tecnico', 'area', 'departamento'
+        )
+        q = self.request.GET.get('q', '').strip()
+        if q:
+            qs = qs.filter(
+                Q(numero_ticket__icontains=q) |
+                Q(persona_reporto__icontains=q) |
+                Q(descripcion__icontains=q)
+            )
+        estado_id = self.request.GET.get('estado', '').strip()
+        if estado_id:
+            qs = qs.filter(estado_id=estado_id)
+        prioridad_id = self.request.GET.get('prioridad', '').strip()
+        if prioridad_id:
+            qs = qs.filter(prioridad_id=prioridad_id)
+        area_id = self.request.GET.get('area', '').strip()
+        if area_id:
+            qs = qs.filter(area_id=area_id)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['q'] = self.request.GET.get('q', '')
+        ctx['filtro_estado'] = self.request.GET.get('estado', '')
+        ctx['filtro_prioridad'] = self.request.GET.get('prioridad', '')
+        ctx['filtro_area'] = self.request.GET.get('area', '')
+        ctx['estados'] = Estado.objects.filter(activo=True)
+        ctx['prioridades'] = Prioridad.objects.filter(activo=True)
+        ctx['areas'] = Grupo.objects.filter(activo=True)
+        ctx['tipos_requerimiento'] = TipoRequerimiento.objects.filter(activo=True)
+        ctx['vias_reporte'] = ViaReporte.objects.filter(activo=True)
+        ctx['tecnicos'] = Persona.objects.filter(activo=True)
+        u = self.request.user
+        ctx['puede_editar'] = _tiene_perm(u, 'inv.change_requerimiento')
+        ctx['puede_eliminar'] = _tiene_perm(u, 'inv.delete_requerimiento')
+        return ctx
+
+
+@login_required
+def requerimiento_json(request, pk):
+    obj = get_object_or_404(Requerimiento, pk=pk)
+    return JsonResponse({
+        'pk': obj.pk,
+        'fecha_reporte': obj.fecha_reporte.isoformat() if obj.fecha_reporte else '',
+        'persona_reporto': obj.persona_reporto or '',
+        'tipo_requerimiento_id': obj.tipo_requerimiento_id or '',
+        'via_reporte_id': obj.via_reporte_id or '',
+        'descripcion': obj.descripcion,
+        'estado_id': obj.estado_id or '',
+        'prioridad_id': obj.prioridad_id or '',
+        'area_id': obj.area_id or '',
+        'departamento_id': obj.departamento_id or '',
+        'tecnico_id': obj.tecnico_id or '',
+        'fecha_solucion': obj.fecha_solucion.isoformat() if obj.fecha_solucion else '',
+        'accion': obj.accion,
+        'observaciones': obj.observaciones,
+    })
+
+
+class RequerimientoUpdateView(LoginRequiredMixin, UpdateView):
+    model = Requerimiento
+    form_class = RequerimientoForm
+    success_url = reverse_lazy('inv:registro_requerimientos')
+
+    def dispatch(self, request, *args, **kwargs):
+        r = _sin_permiso(request, 'inv.change_requerimiento', 'inv:registro_requerimientos')
+        if r:
+            return r
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Requerimiento actualizado.')
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        partes = []
+        for campo, errores in form.errors.items():
+            if campo == '__all__':
+                partes.extend(errores)
+            else:
+                label = form.fields[campo].label or campo
+                partes.append(f'{label}: {", ".join(errores)}')
+        messages.error(self.request, 'No se pudo guardar. ' + ' | '.join(partes))
+        return redirect('inv:registro_requerimientos')
+
+
+@login_required
+@require_POST
+def requerimiento_delete(request, pk):
+    r = _sin_permiso(request, 'inv.delete_requerimiento', 'inv:registro_requerimientos')
+    if r:
+        return r
+    obj = get_object_or_404(Requerimiento, pk=pk)
+    ticket = obj.numero_ticket or f'#{obj.pk}'
+    try:
+        obj.delete()
+        messages.success(request, f'Requerimiento "{ticket}" eliminado.')
+    except ProtectedError:
+        messages.error(request, f'No se puede eliminar "{ticket}" porque tiene registros asociados.')
+    return redirect('inv:registro_requerimientos')

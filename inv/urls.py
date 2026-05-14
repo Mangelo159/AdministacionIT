@@ -177,4 +177,13 @@ urlpatterns = [
     path('soporte/prioridades/<int:pk>/editar/', views.PrioridadUpdateView.as_view(), name='prioridad_editar'),
     path('soporte/prioridades/<int:pk>/toggle/', views.prioridad_toggle, name='prioridad_toggle'),
     path('soporte/prioridades/<int:pk>/eliminar/', views.prioridad_delete, name='prioridad_eliminar'),
+
+    # Requerimientos — módulo Formulario
+    path('soporte/formulario/', views.FormularioRequerimientoView.as_view(), name='formulario_requerimiento'),
+
+    # Requerimientos — módulo Registro
+    path('soporte/registros/', views.RegistroRequerimientosView.as_view(), name='registro_requerimientos'),
+    path('soporte/requerimientos/<int:pk>/editar/', views.RequerimientoUpdateView.as_view(), name='requerimiento_editar'),
+    path('soporte/requerimientos/<int:pk>/eliminar/', views.requerimiento_delete, name='requerimiento_eliminar'),
+    path('soporte/requerimientos/<int:pk>/json/', views.requerimiento_json, name='requerimiento_json'),
 ]

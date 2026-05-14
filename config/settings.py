@@ -118,10 +118,40 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# ── Cloudinary (almacenamiento de imágenes) ───────────────────────────────────
+# Crea una cuenta en https://cloudinary.com (plan gratuito) y agrega al .env:
+#   CLOUDINARY_CLOUD_NAME=tu_cloud_name
+#   CLOUDINARY_API_KEY=tu_api_key
+#   CLOUDINARY_API_SECRET=tu_api_secret
+_CLOUDINARY_CLOUD_NAME = config('CLOUDINARY_CLOUD_NAME', default='')
+if _CLOUDINARY_CLOUD_NAME:
+    INSTALLED_APPS = INSTALLED_APPS + ['cloudinary_storage', 'cloudinary']
+    CLOUDINARY_STORAGE = {
+        'CLOUD_NAME': _CLOUDINARY_CLOUD_NAME,
+        'API_KEY': config('CLOUDINARY_API_KEY', default=''),
+        'API_SECRET': config('CLOUDINARY_API_SECRET', default=''),
+    }
+    STORAGES = {
+        'default': {
+            'BACKEND': 'cloudinary_storage.storage.MediaCloudinaryStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        },
+    }
+else:
+    STORAGES = {
+        'default': {
+            'BACKEND': 'django.core.files.storage.FileSystemStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        },
+    }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

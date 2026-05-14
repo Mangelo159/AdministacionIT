@@ -1,0 +1,381 @@
+{% extends 'base.html' %}
+{% block title %}Formulario de Requerimiento — Inventario{% endblock %}
+{% block extra_css %}<style>[x-cloak]{display:none!important}</style>{% endblock %}
+
+{% block content %}
+
+<div id="req-urls" class="hidden"
+     data-subgrupos-url="{% url 'inv:subgrupos_json' %}"></div>
+
+<!-- Breadcrumb + título -->
+<div class="flex items-center justify-between gap-4 mb-6">
+  <div>
+    <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
+      <a href="{% url 'inv:home' %}" class="hover:text-[#2F4156] transition-colors">Inicio</a>
+      <i class="bi bi-chevron-right text-[10px]"></i>
+      <span class="text-slate-600 font-medium">Formulario de Requerimiento</span>
+    </div>
+    <h1 class="text-xl font-bold text-slate-800">Formulario de Requerimiento TIC</h1>
+    <p class="text-slate-400 text-xs mt-0.5">Complete todos los campos requeridos y envíe la solicitud.</p>
+  </div>
+  <div class="flex items-center gap-2 shrink-0">
+    <a href="{% url 'inv:home' %}"
+       class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600
+              text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
+      <i class="bi bi-arrow-left text-xs"></i>Volver
+    </a>
+    <a href="{% url 'inv:registro_requerimientos' %}"
+       class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#2F4156]/30 text-[#2F4156]
+              text-sm font-medium rounded-lg hover:bg-[#C8D9E6]/40 transition-colors">
+      <i class="bi bi-table text-xs"></i>Ver Registros
+    </a>
+  </div>
+</div>
+
+<!-- Formulario -->
+<div class="max-w-3xl mx-auto"
+     x-data="{
+       area_id: '',
+       subgrupos: [],
+       departamento_id: '',
+       previewUrl: null,
+
+       async onAreaChange(val) {
+         this.departamento_id = '';
+         this.subgrupos = [];
+         if (!val) return;
+         const url = document.getElementById('req-urls').dataset.subgruposUrl;
+         const r = await fetch(url + '?grupo_id=' + val);
+         const d = await r.json();
+         this.subgrupos = d.subgrupos;
+       },
+
+       onFileChange(e) {
+         const f = e.target.files[0];
+         this.previewUrl = f ? URL.createObjectURL(f) : null;
+       }
+     }">
+
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+
+    <!-- ── Sección 1: Datos del reporte ──────────────────────────────────── -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-5">
+      <div class="px-6 py-3 border-b border-slate-100 bg-slate-50/70 flex items-center gap-2">
+        <div class="w-6 h-6 bg-[#2F4156] rounded-md flex items-center justify-center shrink-0">
+          <i class="bi bi-file-earmark-text text-white text-xs"></i>
+        </div>
+        <h2 class="text-sm font-semibold text-[#2F4156]">Datos del Reporte</h2>
+      </div>
+      <div class="px-6 py-5 grid grid-cols-2 gap-x-5 gap-y-4">
+
+        <!-- Fecha Reporte -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Fecha de Reporte
+          </label>
+          <input type="date" name="fecha_reporte"
+                 value="{{ form.fecha_reporte.value|default:'' }}"
+                 class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700
+                        focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent">
+          {% if form.fecha_reporte.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.fecha_reporte.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Persona que Reportó -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Quién Reportó
+          </label>
+          <input type="text" name="persona_reporto"
+                 value="{{ form.persona_reporto.value|default:'' }}"
+                 placeholder="Nombre completo de quien reporta"
+                 class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700
+                        focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent
+                        placeholder:text-slate-400">
+          {% if form.persona_reporto.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.persona_reporto.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Tipo de Requerimiento -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Tipo de Requerimiento <span class="text-red-500">*</span>
+          </label>
+          <select name="tipo_requerimiento"
+                  class="w-full border rounded-lg px-3 py-2 text-sm text-slate-700 bg-white
+                         focus:outline-none focus:ring-2 focus:ring-[#2F4156]
+                         {% if form.tipo_requerimiento.errors %}border-red-400{% else %}border-slate-200{% endif %}">
+            <option value="">— Seleccionar —</option>
+            {% for t in tipos_requerimiento %}
+            <option value="{{ t.pk }}" {% if form.tipo_requerimiento.value|stringformat:"d" == t.pk|stringformat:"d" %}selected{% endif %}>
+              {{ t.nombre }}
+            </option>
+            {% endfor %}
+          </select>
+          {% if form.tipo_requerimiento.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.tipo_requerimiento.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Vía de Reporte -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Vía de Reporte <span class="text-red-500">*</span>
+          </label>
+          <select name="via_reporte"
+                  class="w-full border rounded-lg px-3 py-2 text-sm text-slate-700 bg-white
+                         focus:outline-none focus:ring-2 focus:ring-[#2F4156]
+                         {% if form.via_reporte.errors %}border-red-400{% else %}border-slate-200{% endif %}">
+            <option value="">— Seleccionar —</option>
+            {% for v in vias_reporte %}
+            <option value="{{ v.pk }}" {% if form.via_reporte.value|stringformat:"d" == v.pk|stringformat:"d" %}selected{% endif %}>
+              {{ v.nombre }}
+            </option>
+            {% endfor %}
+          </select>
+          {% if form.via_reporte.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.via_reporte.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Descripción del Problema -->
+        <div class="col-span-2">
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Descripción del Problema
+          </label>
+          <textarea name="descripcion" rows="3"
+                    placeholder="Describir detalladamente el problema o solicitud..."
+                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700
+                           focus:outline-none focus:ring-2 focus:ring-[#2F4156] placeholder:text-slate-400
+                           resize-none">{{ form.descripcion.value|default:'' }}</textarea>
+          {% if form.descripcion.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.descripcion.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Sección 2: Asignación y Estado ────────────────────────────────── -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-5">
+      <div class="px-6 py-3 border-b border-slate-100 bg-slate-50/70 flex items-center gap-2">
+        <div class="w-6 h-6 bg-[#2F4156] rounded-md flex items-center justify-center shrink-0">
+          <i class="bi bi-person-gear text-white text-xs"></i>
+        </div>
+        <h2 class="text-sm font-semibold text-[#2F4156]">Asignación y Estado</h2>
+      </div>
+      <div class="px-6 py-5 grid grid-cols-2 gap-x-5 gap-y-4">
+
+        <!-- Estado -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Estado <span class="text-red-500">*</span>
+          </label>
+          <select name="estado"
+                  class="w-full border rounded-lg px-3 py-2 text-sm text-slate-700 bg-white
+                         focus:outline-none focus:ring-2 focus:ring-[#2F4156]
+                         {% if form.estado.errors %}border-red-400{% else %}border-slate-200{% endif %}">
+            <option value="">— Seleccionar —</option>
+            {% for e in estados %}
+            <option value="{{ e.pk }}" {% if form.estado.value|stringformat:"d" == e.pk|stringformat:"d" %}selected{% endif %}>
+              {{ e.nombre }}
+            </option>
+            {% endfor %}
+          </select>
+          {% if form.estado.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.estado.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Prioridad -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Prioridad <span class="text-red-500">*</span>
+          </label>
+          <select name="prioridad"
+                  class="w-full border rounded-lg px-3 py-2 text-sm text-slate-700 bg-white
+                         focus:outline-none focus:ring-2 focus:ring-[#2F4156]
+                         {% if form.prioridad.errors %}border-red-400{% else %}border-slate-200{% endif %}">
+            <option value="">— Seleccionar —</option>
+            {% for p in prioridades %}
+            <option value="{{ p.pk }}" {% if form.prioridad.value|stringformat:"d" == p.pk|stringformat:"d" %}selected{% endif %}>
+              {{ p.nombre }}
+            </option>
+            {% endfor %}
+          </select>
+          {% if form.prioridad.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.prioridad.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Área -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Área <span class="text-red-500">*</span>
+          </label>
+          <select name="area" x-model="area_id" @change="onAreaChange($event.target.value)"
+                  class="w-full border rounded-lg px-3 py-2 text-sm text-slate-700 bg-white
+                         focus:outline-none focus:ring-2 focus:ring-[#2F4156]
+                         {% if form.area.errors %}border-red-400{% else %}border-slate-200{% endif %}">
+            <option value="">— Seleccionar —</option>
+            {% for a in areas %}
+            <option value="{{ a.pk }}" {% if form.area.value|stringformat:"d" == a.pk|stringformat:"d" %}selected{% endif %}>
+              {{ a }}
+            </option>
+            {% endfor %}
+          </select>
+          {% if form.area.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.area.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Departamento (cascada) -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Departamento <span class="text-red-500">*</span>
+          </label>
+          <select name="departamento" x-model="departamento_id"
+                  class="w-full border rounded-lg px-3 py-2 text-sm text-slate-700 bg-white
+                         focus:outline-none focus:ring-2 focus:ring-[#2F4156]
+                         {% if form.departamento.errors %}border-red-400{% else %}border-slate-200{% endif %}">
+            <option value="">— Seleccionar área primero —</option>
+            <template x-for="sg in subgrupos" :key="sg.id">
+              <option :value="String(sg.id)" x-text="sg.nombre"></option>
+            </template>
+          </select>
+          {% if form.departamento.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.departamento.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Técnico asignado -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Técnico Asignado <span class="text-red-500">*</span>
+          </label>
+          <select name="tecnico"
+                  class="w-full border rounded-lg px-3 py-2 text-sm text-slate-700 bg-white
+                         focus:outline-none focus:ring-2 focus:ring-[#2F4156]
+                         {% if form.tecnico.errors %}border-red-400{% else %}border-slate-200{% endif %}">
+            <option value="">— Seleccionar —</option>
+            {% for t in tecnicos %}
+            <option value="{{ t.pk }}" {% if form.tecnico.value|stringformat:"d" == t.pk|stringformat:"d" %}selected{% endif %}>
+              {{ t.nombres_completos }}
+            </option>
+            {% endfor %}
+          </select>
+          {% if form.tecnico.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.tecnico.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Fecha Solución -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Fecha de Solución
+          </label>
+          <input type="date" name="fecha_solucion"
+                 value="{{ form.fecha_solucion.value|default:'' }}"
+                 class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700
+                        focus:outline-none focus:ring-2 focus:ring-[#2F4156] focus:border-transparent">
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Sección 3: Resolución y Evidencia ─────────────────────────────── -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+      <div class="px-6 py-3 border-b border-slate-100 bg-slate-50/70 flex items-center gap-2">
+        <div class="w-6 h-6 bg-[#2F4156] rounded-md flex items-center justify-center shrink-0">
+          <i class="bi bi-check2-square text-white text-xs"></i>
+        </div>
+        <h2 class="text-sm font-semibold text-[#2F4156]">Resolución y Evidencia</h2>
+      </div>
+      <div class="px-6 py-5 grid grid-cols-1 gap-y-4">
+
+        <!-- Acción Realizada -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Acción Realizada
+          </label>
+          <textarea name="accion" rows="3"
+                    placeholder="Describir las acciones tomadas para resolver el requerimiento..."
+                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700
+                           focus:outline-none focus:ring-2 focus:ring-[#2F4156] placeholder:text-slate-400
+                           resize-none">{{ form.accion.value|default:'' }}</textarea>
+        </div>
+
+        <!-- Observaciones -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Observaciones
+          </label>
+          <textarea name="observaciones" rows="2"
+                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700
+                           focus:outline-none focus:ring-2 focus:ring-[#2F4156] resize-none">{{ form.observaciones.value|default:'' }}</textarea>
+        </div>
+
+        <!-- Evidencia (imagen) -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+            Evidencia
+            <span class="text-xs font-normal text-slate-400 normal-case tracking-normal ml-1">(imagen opcional)</span>
+          </label>
+
+          <!-- Zona de carga -->
+          <label class="flex flex-col items-center justify-center w-full border-2 border-dashed
+                        border-slate-200 rounded-xl p-5 cursor-pointer hover:border-[#2F4156]/40
+                        hover:bg-[#C8D9E6]/10 transition-colors group">
+            <template x-if="!previewUrl">
+              <div class="flex flex-col items-center text-center">
+                <div class="w-10 h-10 bg-slate-100 group-hover:bg-[#C8D9E6]/50 rounded-xl
+                            flex items-center justify-center mb-2 transition-colors">
+                  <i class="bi bi-image text-slate-400 group-hover:text-[#2F4156] text-lg transition-colors"></i>
+                </div>
+                <p class="text-sm text-slate-500 group-hover:text-slate-700 transition-colors">
+                  Arrastra una imagen aquí o <span class="text-[#2F4156] font-medium">selecciona un archivo</span>
+                </p>
+                <p class="text-xs text-slate-400 mt-1">PNG, JPG, JPEG, GIF, WEBP — Máx. 5 MB</p>
+              </div>
+            </template>
+            <template x-if="previewUrl">
+              <div class="relative w-full">
+                <img :src="previewUrl" alt="Preview"
+                     class="max-h-48 mx-auto rounded-lg object-contain shadow-sm">
+                <p class="text-xs text-slate-400 mt-2 text-center">Click para cambiar la imagen</p>
+              </div>
+            </template>
+            <input type="file" name="evidencia" accept="image/*"
+                   class="hidden" @change="onFileChange($event)">
+          </label>
+
+          {% if form.evidencia.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.evidencia.errors|join:", " }}</p>
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Botones de envío -->
+    <div class="flex items-center gap-3">
+      <button type="submit"
+              class="inline-flex items-center gap-2 px-6 py-2.5 bg-[#2F4156] text-white text-sm font-semibold
+                     rounded-xl hover:bg-[#3a5068] transition-colors shadow-md">
+        <i class="bi bi-send-fill text-xs"></i>
+        Registrar Requerimiento
+      </button>
+      <a href="{% url 'inv:home' %}"
+         class="inline-flex items-center gap-1.5 px-4 py-2.5 border border-slate-200 text-slate-600
+                text-sm font-medium rounded-xl hover:bg-slate-50 transition-colors">
+        <i class="bi bi-x-lg text-xs"></i>Cancelar
+      </a>
+    </div>
+
+  </form>
+</div>
+
+{% endblock %}

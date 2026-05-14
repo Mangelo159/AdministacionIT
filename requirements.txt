@@ -1,9 +1,12 @@
 asgiref==3.11.1
+cloudinary==1.44.2
 dj-database-url==2.1.0
 Django==5.2.14
+django-cloudinary-storage==0.3.0
 django-simple-history==3.11.0
 django-tailwind==4.4.2
 gunicorn==23.0.0
+Pillow==12.2.0
 psycopg[binary]==3.2.9
 python-decouple==3.8
 pytailwindcss==0.3.0

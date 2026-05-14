@@ -1,0 +1,484 @@
+{% extends 'base.html' %}
+{% block title %}Registro de Requerimientos — Inventario{% endblock %}
+{% block extra_css %}<style>[x-cloak]{display:none!important}</style>{% endblock %}
+
+{% block content %}
+
+<div id="req-urls" class="hidden"
+     data-json-url="{% url 'inv:requerimiento_json' 0 %}"
+     data-subgrupos-url="{% url 'inv:subgrupos_json' %}"></div>
+
+<div
+  x-data="registroApp()"
+  @open-req-edit.window="openEditar($event.detail.pk, $event.detail.editUrl)"
+  @open-req-delete.window="deleteName=$event.detail.nombre; deleteUrl=$event.detail.url; deleteOpen=true">
+
+  <!-- ── ENCABEZADO ─────────────────────────────────────────────────────────── -->
+  <div class="flex items-center justify-between gap-4 mb-5">
+    <div>
+      <div class="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
+        <a href="{% url 'inv:home' %}" class="hover:text-[#2F4156] transition-colors">Inicio</a>
+        <i class="bi bi-chevron-right text-[10px]"></i>
+        <span class="text-slate-600 font-medium">Registro de Requerimientos</span>
+      </div>
+      <h1 class="text-xl font-bold text-slate-800">Registro de Requerimientos</h1>
+      <p class="text-slate-400 text-xs mt-0.5">Historial completo de solicitudes de soporte técnico</p>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <a href="{% url 'inv:home' %}"
+         class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600
+                text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
+        <i class="bi bi-arrow-left text-xs"></i>Volver
+      </a>
+      <a href="{% url 'inv:formulario_requerimiento' %}"
+         class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2F4156] text-white text-sm font-medium
+                rounded-lg hover:bg-[#3a5068] transition-colors shadow-sm">
+        <i class="bi bi-plus-lg"></i>Nuevo Requerimiento
+      </a>
+    </div>
+  </div>
+
+  <!-- ── MODAL EDITAR ────────────────────────────────────────────────────────── -->
+  <div x-show="open" x-cloak
+       x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="open = false"></div>
+
+    <div x-show="open"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+         class="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden z-10
+                max-h-[90vh] flex flex-col">
+
+      <div class="bg-[#C8D9E6] px-6 py-4 border-b border-[#b0cad9] flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 bg-[#2F4156] rounded-lg flex items-center justify-center shrink-0">
+            <i class="bi bi-pencil-square text-[#C8D9E6] text-xs"></i>
+          </div>
+          <h2 class="text-sm font-bold text-[#2F4156]">Editar Requerimiento</h2>
+        </div>
+        <button @click="open = false"
+                class="p-1 rounded-lg text-[#2F4156]/50 hover:text-[#2F4156] hover:bg-[#2F4156]/10 transition-colors">
+          <i class="bi bi-x-lg text-sm"></i>
+        </button>
+      </div>
+
+      <div x-show="loading" x-cloak
+           class="absolute inset-0 bg-white/80 flex items-center justify-center z-20 rounded-2xl">
+        <div class="flex items-center gap-2 text-slate-500 text-sm">
+          <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>Cargando...
+        </div>
+      </div>
+
+      <form :action="editUrl" method="post" class="overflow-y-auto flex-1 px-6 py-5">
+        {% csrf_token %}
+
+        <div class="grid grid-cols-2 gap-x-4 gap-y-4">
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Fecha Reporte</label>
+            <input type="date" name="fecha_reporte" x-model="fecha_reporte"
+                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156]">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Quién Reportó</label>
+            <input type="text" name="persona_reporto" x-model="persona_reporto" placeholder="Nombre completo"
+                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] placeholder:text-slate-400">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Tipo <span class="text-red-500">*</span></label>
+            <select name="tipo_requerimiento" x-model="tipo_requerimiento_id" required
+                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] bg-white">
+              <option value="">— Seleccionar —</option>
+              {% for t in tipos_requerimiento %}<option value="{{ t.pk }}">{{ t.nombre }}</option>{% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Vía de Reporte <span class="text-red-500">*</span></label>
+            <select name="via_reporte" x-model="via_reporte_id" required
+                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] bg-white">
+              <option value="">— Seleccionar —</option>
+              {% for v in vias_reporte %}<option value="{{ v.pk }}">{{ v.nombre }}</option>{% endfor %}
+            </select>
+          </div>
+
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Descripción</label>
+            <textarea name="descripcion" x-model="descripcion" rows="2"
+                      class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] resize-none"></textarea>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Estado <span class="text-red-500">*</span></label>
+            <select name="estado" x-model="estado_id" required
+                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] bg-white">
+              <option value="">— Seleccionar —</option>
+              {% for e in estados %}<option value="{{ e.pk }}">{{ e.nombre }}</option>{% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Prioridad <span class="text-red-500">*</span></label>
+            <select name="prioridad" x-model="prioridad_id" required
+                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] bg-white">
+              <option value="">— Seleccionar —</option>
+              {% for p in prioridades %}<option value="{{ p.pk }}">{{ p.nombre }}</option>{% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Área <span class="text-red-500">*</span></label>
+            <select name="area" x-model="area_id" required @change="onAreaChange($event.target.value)"
+                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] bg-white">
+              <option value="">— Seleccionar —</option>
+              {% for a in areas %}<option value="{{ a.pk }}">{{ a }}</option>{% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Departamento <span class="text-red-500">*</span></label>
+            <select name="departamento" x-model="departamento_id" required
+                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] bg-white">
+              <option value="">— Seleccionar área primero —</option>
+              <template x-for="sg in subgrupos" :key="sg.id">
+                <option :value="String(sg.id)" x-text="sg.nombre"></option>
+              </template>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Técnico <span class="text-red-500">*</span></label>
+            <select name="tecnico" x-model="tecnico_id" required
+                    class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] bg-white">
+              <option value="">— Seleccionar —</option>
+              {% for t in tecnicos %}<option value="{{ t.pk }}">{{ t.nombres_completos }}</option>{% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Fecha Solución</label>
+            <input type="date" name="fecha_solucion" x-model="fecha_solucion"
+                   class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156]">
+          </div>
+
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Acción Realizada</label>
+            <textarea name="accion" x-model="accion" rows="2"
+                      class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] resize-none"></textarea>
+          </div>
+
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Observaciones</label>
+            <textarea name="observaciones" x-model="observaciones" rows="2"
+                      class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F4156] resize-none"></textarea>
+          </div>
+
+        </div>
+
+        <div class="flex items-center gap-2 pt-4 mt-2 border-t border-slate-100">
+          <button type="submit"
+                  class="inline-flex items-center gap-1.5 px-4 py-2 bg-[#2F4156] text-white text-sm font-medium rounded-lg hover:bg-[#3a5068] transition-colors shadow-sm">
+            <i class="bi bi-check-lg"></i>Guardar cambios
+          </button>
+          <button type="button" @click="open = false"
+                  class="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
+            <i class="bi bi-x-lg"></i>Cancelar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── MODAL ELIMINAR ──────────────────────────────────────────────────────── -->
+  <div x-show="deleteOpen" x-cloak
+       x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="deleteOpen = false"></div>
+    <div x-show="deleteOpen"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+         x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+         class="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden z-10">
+      <div class="bg-red-50 px-6 py-4 border-b border-red-100 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 bg-red-500 rounded-lg flex items-center justify-center shrink-0">
+            <i class="bi bi-trash-fill text-white text-xs"></i>
+          </div>
+          <h2 class="text-sm font-bold text-red-700">Eliminar Requerimiento</h2>
+        </div>
+        <button @click="deleteOpen = false" class="p-1 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-100 transition-colors">
+          <i class="bi bi-x-lg text-sm"></i>
+        </button>
+      </div>
+      <div class="px-6 py-5">
+        <p class="text-sm text-slate-600 mb-1">¿Estás seguro que deseas eliminar:</p>
+        <p class="text-sm font-semibold text-slate-800 mb-4" x-text='"«" + deleteName + "»"'></p>
+        <p class="text-xs text-slate-400 mb-5">Esta acción no se puede deshacer.</p>
+        <form method="post" :action="deleteUrl" class="flex items-center gap-2 pt-4 border-t border-slate-100">
+          {% csrf_token %}
+          <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors shadow-sm">
+            <i class="bi bi-trash"></i>Eliminar
+          </button>
+          <button type="button" @click="deleteOpen = false" class="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
+            <i class="bi bi-x-lg"></i>Cancelar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── FILTROS ─────────────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 mb-5">
+    <form method="get" class="flex flex-wrap items-center gap-2">
+      <div class="flex items-center border border-slate-200 bg-slate-50 rounded-lg overflow-hidden flex-1 min-w-[200px] max-w-xs">
+        <span class="px-3 text-slate-400"><i class="bi bi-search text-sm"></i></span>
+        <input type="text" name="q" value="{{ q }}" placeholder="Ticket, persona, descripción..."
+               class="flex-1 py-2 pr-3 text-sm text-slate-700 bg-transparent outline-none placeholder:text-slate-400">
+      </div>
+
+      <select name="estado" class="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#2F4156]">
+        <option value="">Todos los estados</option>
+        {% for e in estados %}<option value="{{ e.pk }}" {% if filtro_estado == e.pk|stringformat:"d" %}selected{% endif %}>{{ e.nombre }}</option>{% endfor %}
+      </select>
+
+      <select name="prioridad" class="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#2F4156]">
+        <option value="">Todas las prioridades</option>
+        {% for p in prioridades %}<option value="{{ p.pk }}" {% if filtro_prioridad == p.pk|stringformat:"d" %}selected{% endif %}>{{ p.nombre }}</option>{% endfor %}
+      </select>
+
+      <select name="area" class="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#2F4156]">
+        <option value="">Todas las áreas</option>
+        {% for a in areas %}<option value="{{ a.pk }}" {% if filtro_area == a.pk|stringformat:"d" %}selected{% endif %}>{{ a }}</option>{% endfor %}
+      </select>
+
+      <button type="submit" class="px-4 py-2 bg-[#2F4156] text-white text-sm font-medium rounded-lg hover:bg-[#3a5068] transition-colors">
+        Filtrar
+      </button>
+      {% if q or filtro_estado or filtro_prioridad or filtro_area %}
+      <a href="?" class="px-3 py-2 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg border border-slate-200 text-sm transition-colors flex items-center gap-1">
+        <i class="bi bi-x-lg text-xs"></i>Limpiar
+      </a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- ── TABLA ───────────────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full">
+        <thead>
+          <tr class="border-b border-slate-200 bg-slate-50">
+            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Ticket</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Fecha</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Quién Reportó</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Tipo</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Área</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Técnico</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Prioridad</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide w-10">Ev.</th>
+            <th class="px-4 py-3 w-12"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for r in requerimientos %}
+          <tr class="hover:bg-[#C8D9E6]/20 transition-colors">
+            <td class="px-4 py-3 text-sm font-mono font-semibold text-[#2F4156]">
+              {{ r.numero_ticket|default:"—" }}
+            </td>
+            <td class="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
+              {% if r.fecha_reporte %}{{ r.fecha_reporte|date:"d/m/Y" }}{% else %}—{% endif %}
+            </td>
+            <td class="px-4 py-3 text-sm text-slate-700">{{ r.persona_reporto|default:"—" }}</td>
+            <td class="px-4 py-3 text-sm text-slate-600">{{ r.tipo_requerimiento.nombre }}</td>
+            <td class="px-4 py-3 text-sm text-slate-600">{{ r.area.nombre }}</td>
+            <td class="px-4 py-3 text-sm text-slate-600">{{ r.tecnico.nombres_completos }}</td>
+            <td class="px-4 py-3">
+              <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded-full border border-blue-200">
+                {{ r.estado.nombre }}
+              </span>
+            </td>
+            <td class="px-4 py-3">
+              <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 rounded-full border border-amber-200">
+                {{ r.prioridad.nombre }}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              {% if r.evidencia %}
+              <a href="{{ r.evidencia.url }}" target="_blank"
+                 class="inline-flex items-center justify-center w-7 h-7 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors"
+                 title="Ver evidencia">
+                <i class="bi bi-image text-emerald-600 text-sm"></i>
+              </a>
+              {% else %}
+              <span class="text-slate-300 text-xs">—</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3">
+              {% if puede_editar or puede_eliminar %}
+              <div x-data="{ open: false, top: 0, right: 0 }"
+                   data-pk="{{ r.pk }}"
+                   data-edit-url="{% url 'inv:requerimiento_editar' r.pk %}"
+                   class="flex justify-end">
+                <button @click.stop="const rc=$el.getBoundingClientRect(); top=rc.bottom+4; right=window.innerWidth-rc.right; open=!open"
+                        class="p-1.5 rounded-lg hover:bg-[#C8D9E6]/50 text-[#2F4156]/60 hover:text-[#2F4156] transition-colors">
+                  <i class="bi bi-three-dots-vertical text-sm"></i>
+                </button>
+
+                <template x-teleport="body">
+                  <div x-show="open"
+                       x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95"
+                       x-transition:enter-end="opacity-100 scale-100" x-transition:leave="transition ease-in duration-75"
+                       x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+                       @click.outside="open = false"
+                       :style="`position:fixed;top:${top}px;right:${right}px`"
+                       class="w-44 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-[9999] origin-top-right">
+
+                    {% if puede_editar %}
+                    <button type="button"
+                            @click="open=false; $dispatch('open-req-edit', { pk: $root.dataset.pk, editUrl: $root.dataset.editUrl })"
+                            class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-600 hover:text-[#2F4156] hover:bg-[#C8D9E6]/25 transition-colors">
+                      <i class="bi bi-pencil text-xs text-slate-400"></i>Editar
+                    </button>
+                    {% endif %}
+
+                    {% if puede_editar and puede_eliminar %}
+                    <div class="mx-3 my-1 border-t border-slate-100"></div>
+                    {% endif %}
+
+                    {% if puede_eliminar %}
+                    <button type="button"
+                            @click="open=false; $dispatch('open-req-delete', { nombre: '{{ r.numero_ticket|default:r.pk }}', url: '{% url 'inv:requerimiento_eliminar' r.pk %}' })"
+                            class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                      <i class="bi bi-trash text-xs text-red-400"></i>Eliminar
+                    </button>
+                    {% endif %}
+
+                  </div>
+                </template>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="10" class="px-4 py-14 text-center">
+              <i class="bi bi-inbox text-3xl text-slate-300 block mb-2"></i>
+              <span class="text-sm text-slate-400">
+                No hay requerimientos{% if q %} para "<strong class="text-slate-600">{{ q }}</strong>"{% endif %}.
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if is_paginated %}
+  <nav class="flex justify-center mt-5">
+    <div class="inline-flex items-center gap-1">
+      {% if page_obj.has_previous %}
+      <a href="?{% if q %}q={{ q }}&{% endif %}{% if filtro_estado %}estado={{ filtro_estado }}&{% endif %}{% if filtro_prioridad %}prioridad={{ filtro_prioridad }}&{% endif %}{% if filtro_area %}area={{ filtro_area }}&{% endif %}page={{ page_obj.previous_page_number }}"
+         class="px-3 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 bg-white transition-colors">
+        <i class="bi bi-chevron-left text-xs"></i>
+      </a>
+      {% endif %}
+      <span class="px-3 py-1.5 text-sm border border-[#2F4156] bg-[#2F4156] text-white rounded-lg font-medium">
+        {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+      </span>
+      {% if page_obj.has_next %}
+      <a href="?{% if q %}q={{ q }}&{% endif %}{% if filtro_estado %}estado={{ filtro_estado }}&{% endif %}{% if filtro_prioridad %}prioridad={{ filtro_prioridad }}&{% endif %}{% if filtro_area %}area={{ filtro_area }}&{% endif %}page={{ page_obj.next_page_number }}"
+         class="px-3 py-1.5 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 bg-white transition-colors">
+        <i class="bi bi-chevron-right text-xs"></i>
+      </a>
+      {% endif %}
+    </div>
+  </nav>
+  {% endif %}
+
+</div>
+
+<script>
+function registroApp() {
+  const el = document.getElementById('req-urls');
+  const JSON_URL = el.dataset.jsonUrl;
+  const SUBGRUPOS_URL = el.dataset.subgruposUrl;
+
+  return {
+    open: false,
+    loading: false,
+    editUrl: '',
+
+    fecha_reporte: '', persona_reporto: '', tipo_requerimiento_id: '', via_reporte_id: '',
+    descripcion: '', estado_id: '', prioridad_id: '', area_id: '', departamento_id: '',
+    tecnico_id: '', fecha_solucion: '', accion: '', observaciones: '',
+
+    subgrupos: [],
+    deleteOpen: false, deleteName: '', deleteUrl: '',
+
+    async openEditar(pk, editUrl) {
+      this.loading = true;
+      this.editUrl = editUrl;
+      this.open = true;
+
+      try {
+        const r = await fetch(JSON_URL.replace('/0/', '/' + pk + '/'));
+        const d = await r.json();
+
+        this.fecha_reporte = d.fecha_reporte || '';
+        this.persona_reporto = d.persona_reporto || '';
+        this.tipo_requerimiento_id = String(d.tipo_requerimiento_id || '');
+        this.via_reporte_id = String(d.via_reporte_id || '');
+        this.descripcion = d.descripcion || '';
+        this.estado_id = String(d.estado_id || '');
+        this.prioridad_id = String(d.prioridad_id || '');
+        this.area_id = String(d.area_id || '');
+        this.tecnico_id = String(d.tecnico_id || '');
+        this.fecha_solucion = d.fecha_solucion || '';
+        this.accion = d.accion || '';
+        this.observaciones = d.observaciones || '';
+
+        if (d.area_id) {
+          await this.loadSubgrupos(d.area_id);
+        }
+        this.$nextTick(() => {
+          this.departamento_id = String(d.departamento_id || '');
+          this.loading = false;
+        });
+      } catch (e) {
+        this.loading = false;
+      }
+    },
+
+    async onAreaChange(val) {
+      this.departamento_id = '';
+      this.subgrupos = [];
+      if (val) await this.loadSubgrupos(val);
+    },
+
+    async loadSubgrupos(areaId) {
+      const r = await fetch(SUBGRUPOS_URL + '?grupo_id=' + areaId);
+      const d = await r.json();
+      this.subgrupos = d.subgrupos;
+    },
+  };
+}
+</script>
+
+{% endblock %}

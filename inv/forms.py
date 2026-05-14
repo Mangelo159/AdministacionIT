@@ -2,7 +2,8 @@ from django import forms
 from .models import (Marca, TipoEquipo, TipoPeriferico, TipoComponente, ModeloComponente,
                      Institucion, Sede, Grupo, Subgrupo, Rol, Persona, Perfil, Modulo, Software,
                      Equipo, Componente, Periferico, InstalacionSoftware, Dispositivo,
-                     ViaReporte, TipoRequerimiento, Estado, Prioridad, GrupoProgramas)
+                     ViaReporte, TipoRequerimiento, Estado, Prioridad, GrupoProgramas,
+                     Requerimiento)
 
 
 class MarcaForm(forms.ModelForm):
@@ -334,4 +335,45 @@ class PrioridadForm(forms.ModelForm):
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control', 'autofocus': True}),
             'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class RequerimientoForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['tipo_requerimiento'].queryset = TipoRequerimiento.objects.filter(activo=True)
+        self.fields['estado'].queryset = Estado.objects.filter(activo=True)
+        self.fields['prioridad'].queryset = Prioridad.objects.filter(activo=True)
+        self.fields['via_reporte'].queryset = ViaReporte.objects.filter(activo=True)
+        self.fields['tecnico'].queryset = Persona.objects.filter(activo=True)
+        self.fields['area'].queryset = Grupo.objects.filter(activo=True)
+        if self.instance.pk and self.instance.area_id:
+            self.fields['departamento'].queryset = Subgrupo.objects.filter(
+                grupo=self.instance.area, activo=True
+            )
+        else:
+            self.fields['departamento'].queryset = Subgrupo.objects.none()
+
+    class Meta:
+        model = Requerimiento
+        fields = [
+            'fecha_reporte', 'persona_reporto', 'tipo_requerimiento', 'via_reporte',
+            'descripcion', 'estado', 'prioridad', 'area', 'departamento',
+            'tecnico', 'fecha_solucion', 'accion', 'observaciones', 'evidencia',
+        ]
+        widgets = {
+            'fecha_reporte': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'persona_reporto': forms.TextInput(attrs={'class': 'form-control'}),
+            'tipo_requerimiento': forms.Select(attrs={'class': 'form-select'}),
+            'via_reporte': forms.Select(attrs={'class': 'form-select'}),
+            'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'estado': forms.Select(attrs={'class': 'form-select'}),
+            'prioridad': forms.Select(attrs={'class': 'form-select'}),
+            'area': forms.Select(attrs={'class': 'form-select'}),
+            'departamento': forms.Select(attrs={'class': 'form-select'}),
+            'tecnico': forms.Select(attrs={'class': 'form-select'}),
+            'fecha_solucion': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'accion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'evidencia': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
         }

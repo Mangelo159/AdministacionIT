@@ -536,8 +536,23 @@ class Prioridad(models.Model):
     def __str__(self):
         return self.nombre
 
+def generar_numero_ticket():
+    ano_actual = datetime.datetime.now().year
+    ultimo_ticket = Requerimiento.objects.filter(
+        numero_ticket__startswith=f'TIC-{ano_actual}'
+    ).order_by('-numero_ticket').first()
+    if ultimo_ticket:
+        try:
+            nuevo_numero = int(ultimo_ticket.numero_ticket.split('-')[-1]) + 1
+        except (ValueError, IndexError):
+            nuevo_numero = 1
+    else:
+        nuevo_numero = 1
+    return f'TIC-{ano_actual}-{str(nuevo_numero).zfill(3)}'
+
+
 class Requerimiento(models.Model):
-    numero_ticket = models.CharField(max_length=20, unique=True, null=True, blank=True)  # Cambiado a CharField
+    numero_ticket = models.CharField(max_length=20, unique=True, null=True, blank=True)
     fecha_reporte = models.DateField(null=True, blank=True)
     persona_reporto = models.CharField(max_length=100, null=True, blank=True)
     tipo_requerimiento = models.ForeignKey(TipoRequerimiento, on_delete=models.PROTECT)
@@ -550,31 +565,19 @@ class Requerimiento(models.Model):
     via_reporte = models.ForeignKey(ViaReporte, on_delete=models.PROTECT)
     prioridad = models.ForeignKey(Prioridad, on_delete=models.PROTECT)
     observaciones = models.TextField(blank=True)
-    fecha_solucion = models.DateTimeField(auto_now_add=True)
-    evidencia = models.TextField(blank=True) #VER QUE SE HACE AQUI POR QUE AQUI VA UNA IMAGEN VER QUE SOLUCION USAMOS
+    fecha_solucion = models.DateField(null=True, blank=True)
+    evidencia = models.ImageField(upload_to='requerimientos/', null=True, blank=True, verbose_name='Evidencia (imagen)')
 
+    class Meta:
+        verbose_name = 'Requerimiento'
+        verbose_name_plural = 'Requerimientos'
+        ordering = ['-id']
 
-def generar_numero_ticket():
-    """
-    Genera un número de ticket automático con el formato: TIC-2025-001
-    """
+    def __str__(self):
+        ticket = self.numero_ticket or f'#{self.pk}'
+        return f'{ticket} — {self.tipo_requerimiento}'
 
-    ano_actual = datetime.now().year
-
-    # Buscar el último ticket del año actual
-    ultimo_ticket = Requerimiento.objects.filter(
-        numero_ticket__startswith=f'TIC-{ano_actual}'
-    ).order_by('-numero_ticket').first()
-
-    if ultimo_ticket:
-        # Extraer el número secuencial del último ticket
-        try:
-            ultimo_numero = int(ultimo_ticket.numero_ticket.split('-')[-1])
-            nuevo_numero = ultimo_numero + 1
-        except (ValueError, IndexError):
-            nuevo_numero = 1
-    else:
-        nuevo_numero = 1
-
-    # Formatear el número con 3 dígitos (001, 002, etc.)
-    return f'TIC-{ano_actual}-{str(nuevo_numero).zfill(3)}'
+    def save(self, *args, **kwargs):
+        if not self.numero_ticket:
+            self.numero_ticket = generar_numero_ticket()
+        super().save(*args, **kwargs)
